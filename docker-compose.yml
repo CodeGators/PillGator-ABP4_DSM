@@ -1,0 +1,29 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    container_name: abp4_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: abp4
+      POSTGRES_USER: abp4user
+      POSTGRES_PASSWORD: abp4pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: abp4_backend
+    depends_on:
+      - postgres
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://abp4user:abp4pass@postgres:5432/abp4
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

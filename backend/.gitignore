@@ -1,0 +1,15 @@
+# Node.js/TypeScript backend
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.npm
+.eslintcache
+.yarn-integrity
+*.tgz
+.cache
+.parcel-cache
