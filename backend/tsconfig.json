@@ -8,7 +8,8 @@
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
-    "target": "es2020",
+    "target": "ESNext",
+    "moduleResolution":"nodenext",
     "types": ["jest"],
     // For nodejs:
     // "lib": ["esnext"],
@@ -42,5 +43,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "include": ["src","tests"] 
+  "include": ["src","tests", "jest.config.ts"] 
 }

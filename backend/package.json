@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint .",
-    "test": "jest --runInBand"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.config.ts --runInBand"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +28,7 @@
     "@types/node": "^25.6.0",
     "@types/supertest": "^7.2.0",
     "eslint": "^10.2.1",
+    "globals": "^17.5.0",
     "jest": "^30.3.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.9",
