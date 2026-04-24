@@ -3,8 +3,23 @@ name: CI
 on:
   push:
     branches: ["main", "develop", "feature/**"]
+    paths:
+      - "backend/**"
+      - "mobile/**"
+      - "iot/**"
+      - ".github/workflows/**"
+      - "docker-compose.yml"
+      - "!docs/**"
   pull_request:
     branches: ["main", "develop"]
+    paths:
+      - "backend/**"
+      - "mobile/**"
+      - "iot/**"
+      - ".github/workflows/**"
+      - "docker-compose.yml"
+      - "!docs/**"
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -20,7 +35,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.12.2
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -49,7 +64,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.12.2
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
@@ -61,3 +76,33 @@ jobs:
 
       - name: Test
         run: npm test --if-present
+
+  docker-integration:
+    runs-on: ubuntu-latest
+    needs: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t abp4-backend ./backend
+
+      - name: Start services
+        run: docker compose up -d postgres backend
+
+      - name: Wait for backend health
+        run: |
+          for i in {1..20}; do
+            if curl -fsS http://localhost:3000/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Backend did not become healthy in time"
+          docker compose logs
+          exit 1
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v

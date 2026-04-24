@@ -3,10 +3,17 @@ name: CD Backend
 on:
   push:
     branches: ["main"]
+    paths:
+      - "backend/**"
+      - ".github/workflows/cd-backend.yml"
+      - "docker-compose.yml"
+      - "!docs/**"
+  workflow_dispatch:
 
 jobs:
-  docker:
+  publish-image:
     runs-on: ubuntu-latest
+    environment: production
 
     permissions:
       contents: read
