@@ -6,6 +6,7 @@ Adafruit_LiquidCrystal lcd(0);
 Servo servo1, servo2, servo3;
 const int leds[] = {7, 6, 5}; 
 const int pinoBuzzer = 8;
+const int sensores[] = {2, 3, 4}; // Pinos dos botões (Gavetas 1, 2 e 3)
 
 void setup() {
   lcd.begin(16, 2);
@@ -26,7 +27,11 @@ void setup() {
   servo2.write(0);
   servo3.write(0);
 
-  for(int i=0; i<3; i++) pinMode(leds[i], OUTPUT);
+  for(int i=0; i<3; i++) {
+    pinMode(leds[i], OUTPUT);
+    // INPUT_PULLUP usa o resistor interno, o botão envia LOW quando clicado
+    pinMode(sensores[i], INPUT_PULLUP); 
+  }
   pinMode(pinoBuzzer, OUTPUT);
 }
 
@@ -38,39 +43,61 @@ void atualizarVisor(String linha1, String linha2) {
   lcd.print(linha2);
 }
 
-// --- NOVA FUNÇÃO: AVISO AGRADÁVEL E MAIS GRAVE ---
 void tocarAvisoAgradavel() {
-  // Frequências mais baixas para um som mais grave e encorpado
   for (int i = 0; i < 2; i++) {
-    tone(pinoBuzzer, 523); // Nota Dó (C5) - Reduzido de 1047
+    tone(pinoBuzzer, 523); 
     delay(150);
-    tone(pinoBuzzer, 659); // Nota Mi (E5) - Reduzido de 1319
+    tone(pinoBuzzer, 659); 
     delay(150);
-    tone(pinoBuzzer, 784); // Nota Sol (G5) - Reduzido de 1568
+    tone(pinoBuzzer, 784); 
     delay(300);             
-    
     noTone(pinoBuzzer);     
     delay(1400);            
   }
-  
-  // Completa o tempo para fechar exatos 5 segundos de gaveta aberta
-  delay(1000); 
+}
+
+void tocarAlertaErro() {
+  for(int i=0; i<3; i++) {
+    tone(pinoBuzzer, 250); 
+    delay(300);
+    noTone(pinoBuzzer);
+    delay(100);
+  }
 }
 
 void liberarRemedio(int gaveta, String nome, String hora) {
-  atualizarVisor("AGORA: " + nome, "HORA: " + hora);
-  
+  atualizarVisor("AGORA: " + nome, "Abra a gaveta!");
   digitalWrite(leds[gaveta-1], HIGH);
 
-  // Abre a gaveta correspondente
+  // Destranca a gaveta
   if(gaveta == 1) servo1.write(90);
   else if(gaveta == 2) servo2.write(90);
   else if(gaveta == 3) servo3.write(90);
 
-  // Toca o som agradável e grave
   tocarAvisoAgradavel(); 
 
-  // Tranca novamente
+  bool gavetaAberta = false;
+  
+  // Loop de espera: 10 segundos para clicar no botão no Tinkercad
+  for(int i = 0; i < 100; i++) { 
+    if(digitalRead(sensores[gaveta-1]) == LOW) { 
+      gavetaAberta = true;
+      break; 
+    }
+    delay(100); 
+  }
+
+  // Verifica se o paciente tirou o remédio ou ignorou
+  if(gavetaAberta) {
+    atualizarVisor("Remedio retirado", "Fechando...");
+    delay(3000); 
+  } else {
+    atualizarVisor("ALERTA: Ignorado", "Remedio na caixa");
+    tocarAlertaErro();
+    delay(3000);
+  }
+
+  // Tranca a gaveta
   if(gaveta == 1) servo1.write(0);
   else if(gaveta == 2) servo2.write(0);
   else if(gaveta == 3) servo3.write(0);
@@ -80,17 +107,17 @@ void liberarRemedio(int gaveta, String nome, String hora) {
 
 void loop() {
   // GAVETA 1
-  atualizarVisor("PROX: Remedio A", "HORA: 08:00");
+  atualizarVisor("Prox: Remedio A", "Horario: 08:00");
   delay(5000); 
   liberarRemedio(1, "Remedio A", "08:00");
 
   // GAVETA 2
-  atualizarVisor("PROX: Remedio B", "HORA: 14:00");
+  atualizarVisor("Prox: Remedio B", "Horario: 14:00");
   delay(5000);
   liberarRemedio(2, "Remedio B", "14:00");
 
   // GAVETA 3
-  atualizarVisor("PROX: Remedio C", "HORA: 20:00");
+  atualizarVisor("Prox: Remedio C", "Horario: 20:00");
   delay(5000);
   liberarRemedio(3, "Remedio C", "20:00");
 }
