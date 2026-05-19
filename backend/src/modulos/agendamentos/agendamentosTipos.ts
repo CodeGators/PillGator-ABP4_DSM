@@ -2,6 +2,12 @@ import type {
   AgendamentoMedicamento,
   TipoAgendamentoMedicamento
 } from '../../entidades/AgendamentoMedicamento.js';
+import type { TipoUsuario } from '../../entidades/Usuario.js';
+
+export type ContextoUsuarioAgendamento = {
+  id: string;
+  tipo: TipoUsuario;
+};
 
 export type CriarAgendamentoEntrada = {
   medicamentoId?: unknown;
@@ -21,7 +27,13 @@ export type AtualizarAgendamentoEntrada = Partial<CriarAgendamentoEntrada> & {
 };
 
 export type ListarAgendamentosFiltros = {
-  medicamentoId?: string;
+  medicamentoId?: unknown;
+  pacienteId?: unknown;
+};
+
+export type ListarProximasAdministracoesFiltros = {
+  pacienteId?: unknown;
+  data?: unknown;
 };
 
 export type AgendamentoNormalizado = {
@@ -38,13 +50,37 @@ export type AgendamentoNormalizado = {
   ativo: boolean;
 };
 
+export type ProximaAdministracao = {
+  agendamentoId: string;
+  medicamentoId: string;
+  pacienteId: string;
+  medicamentoNome: string;
+  horarioPrevisto: string;
+  tipo: TipoAgendamentoMedicamento;
+  cuidados: string | null;
+};
+
 export interface AgendamentosServicoContrato {
-  listar(filtros?: ListarAgendamentosFiltros): Promise<AgendamentoMedicamento[]>;
-  buscarPorId(id: string): Promise<AgendamentoMedicamento>;
-  criar(entrada: CriarAgendamentoEntrada): Promise<AgendamentoMedicamento>;
+  listar(
+    filtros?: ListarAgendamentosFiltros,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<AgendamentoMedicamento[]>;
+  listarProximasAdministracoes(
+    filtros?: ListarProximasAdministracoesFiltros,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<ProximaAdministracao[]>;
+  buscarPorId(
+    id: string,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<AgendamentoMedicamento>;
+  criar(
+    entrada: CriarAgendamentoEntrada,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<AgendamentoMedicamento>;
   atualizar(
     id: string,
-    entrada: AtualizarAgendamentoEntrada
+    entrada: AtualizarAgendamentoEntrada,
+    contexto?: ContextoUsuarioAgendamento
   ): Promise<AgendamentoMedicamento>;
-  remover(id: string): Promise<void>;
+  remover(id: string, contexto?: ContextoUsuarioAgendamento): Promise<void>;
 }

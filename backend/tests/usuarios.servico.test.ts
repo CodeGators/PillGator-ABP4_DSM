@@ -61,6 +61,10 @@ class RepositorioUsuariosMemoria {
           return false;
         }
 
+        if (opcoes.where.cpf !== undefined && usuario.cpf !== opcoes.where.cpf) {
+          return false;
+        }
+
         if (
           opcoes.where.ativo !== undefined &&
           usuario.ativo !== opcoes.where.ativo
@@ -83,22 +87,50 @@ function criarServico() {
   return { servico, usuariosRepositorio };
 }
 
+function criarEntradaUsuario(
+  sobrescritas: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    nome: 'Maria Responsavel',
+    cpf: '935.411.347-80',
+    email: 'maria@example.com',
+    telefone: '11999999999',
+    dataNascimento: '1990-05-20',
+    enderecoRua: 'Rua das Flores',
+    enderecoEstado: 'sp',
+    enderecoCidade: 'Jacarei',
+    enderecoCep: '12345-678',
+    enderecoComplemento: 'Casa 2',
+    senha: 'senha-segura',
+    confirmarSenha: 'senha-segura',
+    tipo: 'responsavel',
+    recebeNotificacoes: true,
+    ...sobrescritas
+  };
+}
+
 describe('UsuariosServico', () => {
-  it('deve criar usuario normalizando email e telefone', async () => {
+  it('deve criar usuario normalizando dados cadastrais', async () => {
     const { servico } = criarServico();
 
-    const usuario = await servico.criar({
+    const usuario = await servico.criar(criarEntradaUsuario({
       nome: ' Maria Responsavel ',
       email: ' MARIA@EXAMPLE.COM ',
       telefone: ' 11999999999 ',
-      tipo: 'responsavel',
-      recebeNotificacoes: true
-    });
+      enderecoEstado: 'sp'
+    }));
 
     expect(usuario).toMatchObject({
       nome: 'Maria Responsavel',
+      cpf: '93541134780',
       email: 'maria@example.com',
       telefone: '11999999999',
+      dataNascimento: '1990-05-20',
+      enderecoRua: 'Rua das Flores',
+      enderecoEstado: 'SP',
+      enderecoCidade: 'Jacarei',
+      enderecoCep: '12345678',
+      enderecoComplemento: 'Casa 2',
       tipo: 'responsavel',
       recebeNotificacoes: true,
       ativo: true
@@ -109,16 +141,18 @@ describe('UsuariosServico', () => {
     const { servico } = criarServico();
 
     await servico.criar({
+      ...criarEntradaUsuario(),
       nome: 'Maria',
-      email: 'maria@example.com',
-      tipo: 'responsavel'
+      email: 'maria@example.com'
     });
 
     await expect(
       servico.criar({
-        nome: 'Outra Maria',
-        email: 'maria@example.com',
-        tipo: 'responsavel'
+        ...criarEntradaUsuario({
+          cpf: '52998224725',
+          email: 'maria@example.com'
+        }),
+        nome: 'Outra Maria'
       })
     ).rejects.toMatchObject<Partial<ErroHttp>>({
       statusCode: 409,
@@ -126,17 +160,53 @@ describe('UsuariosServico', () => {
     });
   });
 
+  it('deve rejeitar cpf duplicado', async () => {
+    const { servico } = criarServico();
+
+    await servico.criar(criarEntradaUsuario());
+
+    await expect(
+      servico.criar(
+        criarEntradaUsuario({
+          email: 'outra.maria@example.com'
+        })
+      )
+    ).rejects.toMatchObject<Partial<ErroHttp>>({
+      statusCode: 409,
+      message: 'CPF ja cadastrado'
+    });
+  });
+
+  it('deve rejeitar confirmacao de senha diferente', async () => {
+    const { servico } = criarServico();
+
+    await expect(
+      servico.criar(
+        criarEntradaUsuario({
+          confirmarSenha: 'senha-diferente'
+        })
+      )
+    ).rejects.toMatchObject<Partial<ErroHttp>>({
+      statusCode: 400,
+      message: 'Campo confirmarSenha deve ser igual a senha'
+    });
+  });
+
   it('deve listar apenas usuarios ativos e filtrar por tipo', async () => {
     const { servico } = criarServico();
 
     await servico.criar({
+      ...criarEntradaUsuario(),
       nome: 'Maria',
-      email: 'maria@example.com',
-      tipo: 'responsavel'
+      email: 'maria@example.com'
     });
     const administrador = await servico.criar({
+      ...criarEntradaUsuario({
+        cpf: '52998224725',
+        email: 'admin@example.com',
+        tipo: 'administrador'
+      }),
       nome: 'Admin',
-      email: 'admin@example.com',
       tipo: 'administrador'
     });
     await servico.remover(administrador.id);
@@ -149,20 +219,18 @@ describe('UsuariosServico', () => {
 
   it('deve atualizar usuario existente', async () => {
     const { servico } = criarServico();
-    const usuario = await servico.criar({
-      nome: 'Maria',
-      email: 'maria@example.com',
-      tipo: 'responsavel'
-    });
+    const usuario = await servico.criar(criarEntradaUsuario());
 
     const atualizado = await servico.atualizar(usuario.id, {
       nome: 'Maria Silva',
-      telefone: ''
+      telefone: '',
+      enderecoCep: '87654-321'
     });
 
     expect(atualizado).toMatchObject({
       nome: 'Maria Silva',
-      telefone: null
+      telefone: null,
+      enderecoCep: '87654321'
     });
   });
 
@@ -171,8 +239,7 @@ describe('UsuariosServico', () => {
 
     await expect(
       servico.criar({
-        nome: 'Maria',
-        email: 'maria@example.com',
+        ...criarEntradaUsuario(),
         tipo: 'cuidador'
       })
     ).rejects.toMatchObject<Partial<ErroHttp>>({
@@ -185,6 +252,7 @@ describe('UsuariosServico', () => {
 
     await expect(
       servico.criar({
+        ...criarEntradaUsuario(),
         nome: 'Joao Paciente',
         email: 'joao@example.com',
         tipo: 'paciente'

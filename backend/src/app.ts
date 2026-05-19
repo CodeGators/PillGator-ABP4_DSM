@@ -9,6 +9,8 @@ import { criarAgendamentosRotas } from './modulos/agendamentos/agendamentosRotas
 import type { AgendamentosServicoContrato } from './modulos/agendamentos/agendamentosTipos.js';
 import { criarAutenticacaoRotas } from './modulos/autenticacao/autenticacaoRotas.js';
 import type { AutenticacaoServicoContrato } from './modulos/autenticacao/autenticacaoTipos.js';
+import { criarBaseMedicamentosRotas } from './modulos/baseMedicamentos/baseMedicamentosRotas.js';
+import type { BaseMedicamentosServicoContrato } from './modulos/baseMedicamentos/baseMedicamentosTipos.js';
 import { criarDispositivosRotas } from './modulos/dispositivos/dispositivosRotas.js';
 import type { DispositivosServicoContrato } from './modulos/dispositivos/dispositivosTipos.js';
 import { criarEventosRotas } from './modulos/eventos/eventosRotas.js';
@@ -27,6 +29,7 @@ type CriarAppOpcoes = {
   agendamentosServico?: AgendamentosServicoContrato;
   autenticacaoAtiva?: boolean;
   autenticacaoServico?: AutenticacaoServicoContrato;
+  baseMedicamentosServico?: BaseMedicamentosServicoContrato;
   dispositivosServico?: DispositivosServicoContrato;
   eventosServico?: EventosServicoContrato;
   medicamentosServico?: MedicamentosServicoContrato;
@@ -67,6 +70,11 @@ export function criarApp(opcoes: CriarAppOpcoes = {}) {
     app.use(autenticar);
   }
 
+  app.use(
+    '/base-medicamentos',
+    protegerPorTipo('administrador', 'responsavel'),
+    criarBaseMedicamentosRotas(opcoes.baseMedicamentosServico)
+  );
   app.use(
     '/medicamentos',
     protegerPorTipo('administrador', 'responsavel'),

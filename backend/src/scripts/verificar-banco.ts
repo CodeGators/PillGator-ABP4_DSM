@@ -2,6 +2,7 @@ import { AppDataSource } from '../config/data-source.js';
 
 const tabelasEsperadas = [
   'medicamentos',
+  'base_medicamentos',
   'agendamentos_medicamentos',
   'eventos_medicamentos',
   'usuarios',
