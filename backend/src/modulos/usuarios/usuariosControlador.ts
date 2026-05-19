@@ -75,14 +75,10 @@ export class UsuariosControlador {
       return {};
     }
 
-    if (
-      tipo !== 'paciente' &&
-      tipo !== 'responsavel' &&
-      tipo !== 'administrador'
-    ) {
+    if (tipo !== 'responsavel' && tipo !== 'administrador') {
       throw new ErroHttp(
         400,
-        'Filtro tipo deve ser paciente, responsavel ou administrador'
+        'Filtro tipo deve ser responsavel ou administrador'
       );
     }
 

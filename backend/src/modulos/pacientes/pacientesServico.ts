@@ -34,13 +34,6 @@ export class PacientesServico implements PacientesServicoContrato {
       return this.listarPorResponsavel(contexto.id);
     }
 
-    if (contexto?.tipo === 'paciente') {
-      return this.pacientesRepositorio.find({
-        where: { usuarioId: contexto.id, ativo: true },
-        order: { nome: 'ASC' }
-      });
-    }
-
     return this.pacientesRepositorio.find({
       where: { ativo: true },
       order: { nome: 'ASC' }
@@ -199,10 +192,6 @@ export class PacientesServico implements PacientesServicoContrato {
     contexto?: ContextoUsuarioPaciente
   ): Promise<void> {
     if (!contexto || contexto.tipo === 'administrador') {
-      return;
-    }
-
-    if (contexto.tipo === 'paciente' && paciente.usuarioId === contexto.id) {
       return;
     }
 

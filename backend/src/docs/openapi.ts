@@ -154,7 +154,7 @@ export const openApiDocument = {
         tags: ['Usuarios'],
         summary: 'Lista usuarios ativos',
         description:
-          'Retorna usuarios ativos. Use o filtro `tipo` quando quiser listar apenas pacientes, responsaveis ou administradores.',
+          'Retorna usuarios ativos. Use o filtro `tipo` quando quiser listar apenas responsaveis ou administradores. Pacientes ficam em /pacientes.',
         parameters: [
           {
             name: 'tipo',
@@ -193,7 +193,7 @@ export const openApiDocument = {
         requestBody: {
           required: true,
           description:
-            '`nome`, `email` e `tipo` sao obrigatorios. `senha` e opcional para o cadastro, mas necessaria para login. `telefone` e `recebeNotificacoes` tambem sao opcionais. Use `responsavel` para quem vai acessar o app e cuidar de um paciente. Use `administrador` apenas em cadastro feito por administrador autenticado.',
+            '`nome`, `cpf`, `telefone`, `email`, `dataNascimento`, endereco, `senha`, `confirmarSenha` e `tipo` sao obrigatorios. `enderecoComplemento` e `recebeNotificacoes` sao opcionais. Use `responsavel` para quem vai acessar o app e cuidar de um paciente. Use `administrador` apenas em cadastro feito por administrador autenticado.',
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/CriarUsuario' },
@@ -202,9 +202,17 @@ export const openApiDocument = {
                   summary: 'Responsavel com acesso ao sistema',
                   value: {
                     nome: 'Maria Responsavel',
+                    cpf: '935.411.347-80',
                     email: 'maria@example.com',
                     telefone: '11999999999',
+                    dataNascimento: '1990-05-20',
+                    enderecoRua: 'Rua das Flores',
+                    enderecoEstado: 'SP',
+                    enderecoCidade: 'Jacarei',
+                    enderecoCep: '12345-678',
+                    enderecoComplemento: 'Casa 2',
                     senha: 'senha-segura',
+                    confirmarSenha: 'senha-segura',
                     tipo: 'responsavel',
                     recebeNotificacoes: true
                   }
@@ -213,9 +221,16 @@ export const openApiDocument = {
                   summary: 'Administrador criado por outro admin',
                   value: {
                     nome: 'Admin PillGator',
+                    cpf: '529.982.247-25',
                     email: 'admin@example.com',
                     telefone: '11999999999',
+                    dataNascimento: '1988-02-10',
+                    enderecoRua: 'Rua Central',
+                    enderecoEstado: 'SP',
+                    enderecoCidade: 'Jacarei',
+                    enderecoCep: '12345-678',
                     senha: 'senha-segura',
+                    confirmarSenha: 'senha-segura',
                     tipo: 'administrador',
                     recebeNotificacoes: false
                   }
@@ -1592,11 +1607,55 @@ export const openApiDocument = {
               'Email unico do usuario. Sera usado no login quando o usuario tiver senha cadastrada.',
             example: 'maria@example.com'
           },
+          cpf: {
+            type: 'string',
+            nullable: true,
+            description:
+              'CPF do usuario com 11 digitos. Pode aparecer com ou sem pontuacao na entrada.',
+            example: '93541134780'
+          },
           telefone: {
             type: 'string',
             nullable: true,
             description: 'Telefone para contato.',
             example: '11999999999'
+          },
+          dataNascimento: {
+            type: 'string',
+            nullable: true,
+            format: 'date',
+            description: 'Data de nascimento no formato YYYY-MM-DD.',
+            example: '1990-05-20'
+          },
+          enderecoRua: {
+            type: 'string',
+            nullable: true,
+            description: 'Rua, avenida ou logradouro.',
+            example: 'Rua das Flores'
+          },
+          enderecoEstado: {
+            type: 'string',
+            nullable: true,
+            description: 'UF com 2 letras.',
+            example: 'SP'
+          },
+          enderecoCidade: {
+            type: 'string',
+            nullable: true,
+            description: 'Cidade do endereco.',
+            example: 'Jacarei'
+          },
+          enderecoCep: {
+            type: 'string',
+            nullable: true,
+            description: 'CEP com 8 digitos.',
+            example: '12345678'
+          },
+          enderecoComplemento: {
+            type: 'string',
+            nullable: true,
+            description: 'Complemento do endereco.',
+            example: 'Casa 2'
           },
           tipo: {
             type: 'string',
@@ -1616,7 +1675,20 @@ export const openApiDocument = {
       },
       CriarUsuario: {
         type: 'object',
-        required: ['nome', 'email', 'tipo'],
+        required: [
+          'nome',
+          'cpf',
+          'telefone',
+          'email',
+          'dataNascimento',
+          'enderecoRua',
+          'enderecoEstado',
+          'enderecoCidade',
+          'enderecoCep',
+          'senha',
+          'confirmarSenha',
+          'tipo'
+        ],
         properties: {
           nome: {
             type: 'string',
@@ -1631,19 +1703,68 @@ export const openApiDocument = {
             description: 'Obrigatorio. Email unico.',
             example: 'maria@example.com'
           },
+          cpf: {
+            type: 'string',
+            description:
+              'Obrigatorio. CPF do usuario. Pode enviar com ou sem pontuacao; o backend salva apenas os 11 digitos.',
+            example: '935.411.347-80'
+          },
           telefone: {
             type: 'string',
-            nullable: true,
             maxLength: 30,
-            description: 'Opcional. Telefone para contato.',
+            description: 'Obrigatorio. Telefone para contato.',
             example: '11999999999'
+          },
+          dataNascimento: {
+            type: 'string',
+            format: 'date',
+            description: 'Obrigatorio. Formato YYYY-MM-DD.',
+            example: '1990-05-20'
+          },
+          enderecoRua: {
+            type: 'string',
+            maxLength: 160,
+            description: 'Obrigatorio. Rua, avenida ou logradouro.',
+            example: 'Rua das Flores'
+          },
+          enderecoEstado: {
+            type: 'string',
+            maxLength: 2,
+            description: 'Obrigatorio. UF com 2 letras.',
+            example: 'SP'
+          },
+          enderecoCidade: {
+            type: 'string',
+            maxLength: 120,
+            description: 'Obrigatorio. Cidade do endereco.',
+            example: 'Jacarei'
+          },
+          enderecoCep: {
+            type: 'string',
+            description:
+              'Obrigatorio. CEP. Pode enviar com ou sem hifen; o backend salva apenas os 8 digitos.',
+            example: '12345-678'
+          },
+          enderecoComplemento: {
+            type: 'string',
+            nullable: true,
+            maxLength: 120,
+            description: 'Opcional. Complemento do endereco.',
+            example: 'Casa 2'
           },
           senha: {
             type: 'string',
             format: 'password',
             minLength: 8,
             description:
-              'Opcional para cadastrar. Necessaria para o usuario conseguir fazer login. O backend salva apenas o hash, nunca a senha em texto.'
+              'Obrigatorio. Senha para login. O backend salva apenas o hash, nunca a senha em texto.'
+          },
+          confirmarSenha: {
+            type: 'string',
+            format: 'password',
+            minLength: 8,
+            description:
+              'Obrigatorio. Deve ser igual ao campo senha.'
           },
           tipo: {
             type: 'string',
@@ -1673,11 +1794,45 @@ export const openApiDocument = {
             maxLength: 160,
             description: 'Opcional. Novo email unico.'
           },
+          cpf: {
+            type: 'string',
+            description: 'Opcional. Novo CPF unico.'
+          },
           telefone: {
             type: 'string',
             nullable: true,
             maxLength: 30,
             description: 'Opcional. Novo telefone.'
+          },
+          dataNascimento: {
+            type: 'string',
+            format: 'date',
+            description: 'Opcional. Nova data de nascimento.'
+          },
+          enderecoRua: {
+            type: 'string',
+            maxLength: 160,
+            description: 'Opcional. Nova rua.'
+          },
+          enderecoEstado: {
+            type: 'string',
+            maxLength: 2,
+            description: 'Opcional. Nova UF.'
+          },
+          enderecoCidade: {
+            type: 'string',
+            maxLength: 120,
+            description: 'Opcional. Nova cidade.'
+          },
+          enderecoCep: {
+            type: 'string',
+            description: 'Opcional. Novo CEP.'
+          },
+          enderecoComplemento: {
+            type: 'string',
+            nullable: true,
+            maxLength: 120,
+            description: 'Opcional. Novo complemento.'
           },
           senha: {
             type: 'string',
@@ -1685,6 +1840,13 @@ export const openApiDocument = {
             minLength: 8,
             description:
               'Opcional. Nova senha. O backend gera um novo hash.'
+          },
+          confirmarSenha: {
+            type: 'string',
+            format: 'password',
+            minLength: 8,
+            description:
+              'Obrigatorio quando enviar nova senha. Deve ser igual ao campo senha.'
           },
           tipo: {
             type: 'string',
