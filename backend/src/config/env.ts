@@ -11,5 +11,8 @@ export const env = {
     process.env.DATABASE_URL ??
     'postgresql://abp4user:abp4pass@localhost:5432/abp4',
   jwtSegredo: process.env.JWT_SECRET ?? jwtSegredoPadrao,
-  jwtExpiracao: process.env.JWT_EXPIRES_IN ?? '8h'
+  jwtExpiracao: process.env.JWT_EXPIRES_IN ?? '8h',
+  mqttBrokerUrl: process.env.MQTT_BROKER_URL ?? '',
+  mqttUsuario: process.env.MQTT_USERNAME ?? '',
+  mqttSenha: process.env.MQTT_PASSWORD ?? ''
 };
