@@ -14,7 +14,10 @@ import { Medicamento } from './Medicamento.js';
 import { Paciente } from './Paciente.js';
 import { Usuario } from './Usuario.js';
 
-export type TipoNotificacao = 'atraso_medicamento';
+export type TipoNotificacao =
+  | 'antes_horario_medicamento'
+  | 'horario_medicamento'
+  | 'atraso_medicamento';
 export type StatusNotificacao = 'pendente' | 'enviada' | 'erro';
 export type CanalNotificacao = 'interno' | 'push';
 

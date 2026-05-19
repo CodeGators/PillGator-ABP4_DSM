@@ -12,6 +12,7 @@ export function criarDispositivosRotas(
 
   rotas.get('/', controlador.listar);
   rotas.post('/', controlador.criar);
+  rotas.get('/:id/status', controlador.obterStatus);
   rotas.get('/:id', controlador.buscarPorId);
   rotas.put('/:id', controlador.atualizar);
   rotas.delete('/:id', controlador.remover);
@@ -21,10 +22,33 @@ export function criarDispositivosRotas(
     '/:dispositivoId/compartimentos/:compartimentoId',
     controlador.atualizarCompartimento
   );
+  rotas.post(
+    '/:dispositivoId/compartimentos/:compartimentoId/liberar',
+    controlador.liberarCompartimento
+  );
+  rotas.post(
+    '/:dispositivoId/compartimentos/:compartimentoId/travar',
+    controlador.travarCompartimento
+  );
   rotas.delete(
     '/:dispositivoId/compartimentos/:compartimentoId',
     controlador.removerCompartimento
   );
+
+  return rotas;
+}
+
+export function criarDispositivosIotRotas(
+  servico: DispositivosServicoContrato = criarDispositivosServico()
+): Router {
+  const rotas = Router();
+  const controlador = new DispositivosControlador(servico);
+
+  rotas.get(
+    '/:identificador/comandos-pendentes',
+    controlador.listarComandosPendentes
+  );
+  rotas.post('/:identificador/eventos', controlador.registrarEventoDispositivo);
 
   return rotas;
 }

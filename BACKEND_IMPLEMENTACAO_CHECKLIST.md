@@ -67,38 +67,38 @@ Este documento guia a conclusao do backend e banco de dados seguindo o fluxo rea
 
 ### 6. Notificacoes Push
 
-- [ ] Criar tabela de tokens push do app.
-- [ ] Criar endpoint para registrar token Expo Push.
-- [ ] Criar tipos de notificacao: antes do horario, no horario e atraso.
-- [ ] Criar rotina/job para gerar notificacoes proximas do horario.
-- [ ] Integrar envio real com Expo Push Notification.
-- [ ] Manter historico em `notificacoes`.
+- [x] Criar tabela de tokens push do app.
+- [x] Criar endpoint para registrar token Expo Push.
+- [x] Criar tipos de notificacao: antes do horario, no horario e atraso.
+- [x] Criar rotina/job para gerar notificacoes proximas do horario.
+- [x] Integrar envio real com Expo Push Notification.
+- [x] Manter historico em `notificacoes`.
 
 ### 7. Gavetas e Dispositivo
 
-- [ ] Garantir que dispositivo pertence ao paciente.
-- [ ] Garantir que compartimento/gaveta so aceite medicamento do mesmo paciente.
-- [ ] Permitir responsavel cadastrar gavetas do paciente.
-- [ ] Permitir associar medicamento do paciente a uma gaveta.
-- [ ] Preparar endpoints para liberar/travar gaveta.
-- [ ] Registrar eventos de gaveta aberta/fechada/medicamento retirado.
+- [x] Garantir que dispositivo pertence ao paciente.
+- [x] Garantir que compartimento/gaveta so aceite medicamento do mesmo paciente.
+- [x] Permitir responsavel cadastrar gavetas do paciente.
+- [x] Permitir associar medicamento do paciente a uma gaveta.
+- [x] Preparar endpoints para liberar/travar gaveta.
+- [x] Registrar eventos de gaveta aberta/fechada/medicamento retirado.
 
 ### 8. Contratos IoT
 
-- [ ] Analisar codigo atual do ESP32 e mapear comandos necessarios.
-- [ ] Criar endpoint para dispositivo consultar comandos pendentes.
-- [ ] Criar endpoint para dispositivo enviar eventos.
-- [ ] Criar controle de status online/offline.
-- [ ] Criar estrategia contra eventos duplicados.
-- [ ] Documentar contrato para o grupo de IoT.
+- [x] Analisar codigo atual do ESP32 e mapear comandos necessarios.
+- [x] Criar endpoint para dispositivo consultar comandos pendentes.
+- [x] Criar endpoint para dispositivo enviar eventos.
+- [x] Criar controle de status online/offline.
+- [x] Criar estrategia contra eventos duplicados.
+- [x] Documentar contrato para o grupo de IoT.
 
 ### 9. Qualidade Final
 
-- [ ] Atualizar `CONTEXTO_ROADMAP.md`.
-- [ ] Atualizar `TAREFAS_INICIAIS.md`.
-- [ ] Atualizar `REQUISITOS_DESAFIO_4DSM.md`.
-- [ ] Rodar migrations em banco local.
-- [ ] Rodar `npm run lint`.
-- [ ] Rodar `npm test`.
-- [ ] Rodar `npm run build`.
+- [x] Atualizar `CONTEXTO_ROADMAP.md`.
+- [x] Atualizar `TAREFAS_INICIAIS.md`.
+- [x] Atualizar `REQUISITOS_DESAFIO_4DSM.md`.
+- [x] Rodar migrations em banco local.
+- [x] Rodar `npm run lint`.
+- [x] Rodar `npm test`.
+- [x] Rodar `npm run build`.
 - [ ] Abrir PR para `develop`.

@@ -11,7 +11,10 @@ import { criarAutenticacaoRotas } from './modulos/autenticacao/autenticacaoRotas
 import type { AutenticacaoServicoContrato } from './modulos/autenticacao/autenticacaoTipos.js';
 import { criarBaseMedicamentosRotas } from './modulos/baseMedicamentos/baseMedicamentosRotas.js';
 import type { BaseMedicamentosServicoContrato } from './modulos/baseMedicamentos/baseMedicamentosTipos.js';
-import { criarDispositivosRotas } from './modulos/dispositivos/dispositivosRotas.js';
+import {
+  criarDispositivosIotRotas,
+  criarDispositivosRotas
+} from './modulos/dispositivos/dispositivosRotas.js';
 import type { DispositivosServicoContrato } from './modulos/dispositivos/dispositivosTipos.js';
 import { criarEventosRotas } from './modulos/eventos/eventosRotas.js';
 import type { EventosServicoContrato } from './modulos/eventos/eventosTipos.js';
@@ -64,6 +67,10 @@ export function criarApp(opcoes: CriarAppOpcoes = {}) {
       incluirCadastroPublico: true,
       incluirGestao: false
     })
+  );
+  app.use(
+    '/iot/dispositivos',
+    criarDispositivosIotRotas(opcoes.dispositivosServico)
   );
 
   if (autenticacaoAtiva) {

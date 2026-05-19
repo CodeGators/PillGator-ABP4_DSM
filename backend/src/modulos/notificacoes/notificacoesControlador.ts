@@ -1,7 +1,9 @@
 import type { Request, RequestHandler, Response } from 'express';
 
 import { ErroHttp } from '../../erros/ErroHttp.js';
+import type { RequestAutenticada } from '../../middlewares/autenticacao.js';
 import type {
+  ContextoUsuarioNotificacao,
   ListarNotificacoesFiltros,
   NotificacoesServicoContrato
 } from './notificacoesTipos.js';
@@ -13,6 +15,27 @@ export class NotificacoesControlador {
     const notificacoes = await this.servico.listar(this.obterFiltros(req));
 
     res.status(200).json(notificacoes);
+  };
+
+  public registrarTokenPush: RequestHandler = async (
+    req: Request,
+    res: Response
+  ) => {
+    const token = await this.servico.registrarTokenPush(
+      req.body,
+      this.obterContexto(req)
+    );
+
+    res.status(201).json(token);
+  };
+
+  public processarProximasNotificacoes: RequestHandler = async (
+    req: Request,
+    res: Response
+  ) => {
+    const resultado = await this.servico.processarProximasNotificacoes(req.body);
+
+    res.status(200).json(resultado);
   };
 
   public verificarAtrasos: RequestHandler = async (
@@ -64,5 +87,20 @@ export class NotificacoesControlador {
     }
 
     return valor.trim();
+  }
+
+  private obterContexto(
+    req: Request
+  ): ContextoUsuarioNotificacao | undefined {
+    const usuario = (req as RequestAutenticada).usuario;
+
+    if (!usuario) {
+      return undefined;
+    }
+
+    return {
+      id: usuario.sub,
+      tipo: usuario.tipo
+    };
   }
 }

@@ -396,10 +396,10 @@ Tarefas:
 - [ ] Documentar arquitetura geral da solucao.
 - [ ] Criar diagrama de componentes.
 - [ ] Criar diagrama de casos de uso.
-- [ ] Criar diagrama/descricao da comunicacao app/backend/IoT.
+- [x] Criar diagrama/descricao da comunicacao app/backend/IoT.
 - [ ] Documentar modelo de dados.
 - [ ] Documentar estrategia de branches/versionamento.
-- [ ] Documentar limites de escopo do firmware IoT.
+- [x] Documentar limites de escopo do firmware IoT.
 
 ## 17. Deploy, Conteinerizacao e Ambiente de Nuvem
 

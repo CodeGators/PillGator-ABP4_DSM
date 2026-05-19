@@ -1,9 +1,12 @@
 import type { Repository } from 'typeorm';
 
+import { ComandoDispositivo } from '../src/entidades/ComandoDispositivo.js';
 import { Compartimento } from '../src/entidades/Compartimento.js';
 import { Dispositivo } from '../src/entidades/Dispositivo.js';
+import { EventoMedicamento } from '../src/entidades/EventoMedicamento.js';
 import { Medicamento } from '../src/entidades/Medicamento.js';
 import { Paciente } from '../src/entidades/Paciente.js';
+import { PacienteResponsavel } from '../src/entidades/PacienteResponsavel.js';
 import { ErroHttp } from '../src/erros/ErroHttp.js';
 import { DispositivosServico } from '../src/modulos/dispositivos/dispositivosServico.js';
 
@@ -195,6 +198,134 @@ class RepositorioMedicamentosMemoria {
   }
 }
 
+class RepositorioPacientesResponsaveisMemoria {
+  public vinculos: PacienteResponsavel[] = [];
+
+  public async find(opcoes: {
+    where: Partial<PacienteResponsavel>;
+  }): Promise<PacienteResponsavel[]> {
+    return this.vinculos.filter((vinculo) => {
+      if (
+        opcoes.where.responsavelId !== undefined &&
+        vinculo.responsavelId !== opcoes.where.responsavelId
+      ) {
+        return false;
+      }
+
+      if (opcoes.where.ativo !== undefined && vinculo.ativo !== opcoes.where.ativo) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  public async findOne(opcoes: {
+    where: Partial<PacienteResponsavel>;
+  }): Promise<PacienteResponsavel | null> {
+    return (
+      this.vinculos.find((vinculo) => {
+        if (
+          opcoes.where.pacienteId !== undefined &&
+          vinculo.pacienteId !== opcoes.where.pacienteId
+        ) {
+          return false;
+        }
+
+        if (
+          opcoes.where.responsavelId !== undefined &&
+          vinculo.responsavelId !== opcoes.where.responsavelId
+        ) {
+          return false;
+        }
+
+        if (
+          opcoes.where.ativo !== undefined &&
+          vinculo.ativo !== opcoes.where.ativo
+        ) {
+          return false;
+        }
+
+        return true;
+      }) ?? null
+    );
+  }
+}
+
+class RepositorioComandosMemoria {
+  public comandos: ComandoDispositivo[] = [];
+
+  public create(dados: Partial<ComandoDispositivo>): ComandoDispositivo {
+    return Object.assign(new ComandoDispositivo(), {
+      id: `comando-${this.comandos.length + 1}`,
+      criadoEm: dataFixa,
+      atualizadoEm: dataFixa,
+      ...dados
+    });
+  }
+
+  public async save(comando: ComandoDispositivo): Promise<ComandoDispositivo> {
+    const indice = this.comandos.findIndex((item) => item.id === comando.id);
+
+    if (indice >= 0) {
+      this.comandos[indice] = comando;
+    } else {
+      this.comandos.push(comando);
+    }
+
+    return comando;
+  }
+
+  public async find(opcoes: {
+    where: Partial<ComandoDispositivo>;
+  }): Promise<ComandoDispositivo[]> {
+    return this.comandos.filter((comando) => {
+      if (
+        opcoes.where.dispositivoId !== undefined &&
+        comando.dispositivoId !== opcoes.where.dispositivoId
+      ) {
+        return false;
+      }
+
+      if (opcoes.where.status !== undefined && comando.status !== opcoes.where.status) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+}
+
+class RepositorioEventosMemoria {
+  public eventos: EventoMedicamento[] = [];
+
+  public create(dados: Partial<EventoMedicamento>): EventoMedicamento {
+    return Object.assign(new EventoMedicamento(), {
+      id: `evento-${this.eventos.length + 1}`,
+      criadoEm: dataFixa,
+      ...dados
+    });
+  }
+
+  public async save(evento: EventoMedicamento): Promise<EventoMedicamento> {
+    this.eventos.push(evento);
+
+    return evento;
+  }
+
+  public async find(opcoes: {
+    where: Partial<EventoMedicamento>;
+  }): Promise<EventoMedicamento[]> {
+    return this.eventos.filter((evento) => {
+      if (opcoes.where.origem !== undefined && evento.origem !== opcoes.where.origem) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+}
+
 function criarPaciente(sobrescritas: Partial<Paciente> = {}): Paciente {
   return Object.assign(new Paciente(), {
     id: 'paciente-1',
@@ -214,6 +345,7 @@ function criarMedicamento(
 ): Medicamento {
   return Object.assign(new Medicamento(), {
     id: 'medicamento-1',
+    pacienteId: 'paciente-1',
     nome: 'Dipirona',
     dosagem: '500mg',
     observacoes: null,
@@ -229,6 +361,10 @@ function criarServico() {
   const compartimentosRepositorio = new RepositorioCompartimentosMemoria();
   const pacientesRepositorio = new RepositorioPacientesMemoria();
   const medicamentosRepositorio = new RepositorioMedicamentosMemoria();
+  const pacientesResponsaveisRepositorio =
+    new RepositorioPacientesResponsaveisMemoria();
+  const comandosRepositorio = new RepositorioComandosMemoria();
+  const eventosRepositorio = new RepositorioEventosMemoria();
 
   pacientesRepositorio.pacientes.push(criarPaciente());
   medicamentosRepositorio.medicamentos.push(criarMedicamento());
@@ -237,12 +373,17 @@ function criarServico() {
     dispositivosRepositorio as unknown as Repository<Dispositivo>,
     compartimentosRepositorio as unknown as Repository<Compartimento>,
     pacientesRepositorio as unknown as Repository<Paciente>,
-    medicamentosRepositorio as unknown as Repository<Medicamento>
+    medicamentosRepositorio as unknown as Repository<Medicamento>,
+    pacientesResponsaveisRepositorio as unknown as Repository<PacienteResponsavel>,
+    comandosRepositorio as unknown as Repository<ComandoDispositivo>,
+    eventosRepositorio as unknown as Repository<EventoMedicamento>
   );
 
   return {
     compartimentosRepositorio,
+    comandosRepositorio,
     dispositivosRepositorio,
+    eventosRepositorio,
     medicamentosRepositorio,
     pacientesRepositorio,
     servico
@@ -332,6 +473,26 @@ describe('DispositivosServico', () => {
     });
   });
 
+  it('deve rejeitar medicamento de outro paciente no compartimento', async () => {
+    const { medicamentosRepositorio, servico } = criarServico();
+    medicamentosRepositorio.medicamentos[0]!.pacienteId = 'paciente-2';
+    const dispositivo = await servico.criar({
+      pacienteId: 'paciente-1',
+      nome: 'PillGator',
+      identificador: 'pillgator-01'
+    });
+
+    await expect(
+      servico.criarCompartimento(dispositivo.id, {
+        numero: 1,
+        medicamentoId: 'medicamento-1'
+      })
+    ).rejects.toMatchObject<Partial<ErroHttp>>({
+      statusCode: 400,
+      message: 'Medicamento deve pertencer ao mesmo paciente do dispositivo'
+    });
+  });
+
   it('deve rejeitar numero duplicado de compartimento ativo', async () => {
     const { servico } = criarServico();
     const dispositivo = await servico.criar({
@@ -368,6 +529,89 @@ describe('DispositivosServico', () => {
 
     expect(atualizado).toMatchObject({
       status: 'liberado',
+      medicamentoId: 'medicamento-1'
+    });
+  });
+
+  it('deve criar comando para liberar compartimento', async () => {
+    const { comandosRepositorio, compartimentosRepositorio, servico } =
+      criarServico();
+    const dispositivo = await servico.criar({
+      pacienteId: 'paciente-1',
+      nome: 'PillGator',
+      identificador: 'pillgator-01'
+    });
+    const compartimento = await servico.criarCompartimento(dispositivo.id, {
+      numero: 1,
+      medicamentoId: 'medicamento-1'
+    });
+
+    const comando = await servico.liberarCompartimento(
+      dispositivo.id,
+      compartimento.id,
+      { motivo: 'Administrar medicamento' }
+    );
+
+    expect(comando).toMatchObject({
+      dispositivoId: dispositivo.id,
+      compartimentoId: compartimento.id,
+      tipo: 'liberar_gaveta',
+      status: 'pendente'
+    });
+    expect(comandosRepositorio.comandos).toHaveLength(1);
+    expect(compartimentosRepositorio.compartimentos[0]?.status).toBe('liberado');
+  });
+
+  it('deve listar comandos pendentes e marcar como enviados', async () => {
+    const { comandosRepositorio, servico } = criarServico();
+    const dispositivo = await servico.criar({
+      pacienteId: 'paciente-1',
+      nome: 'PillGator',
+      identificador: 'pillgator-01'
+    });
+    const compartimento = await servico.criarCompartimento(dispositivo.id, {
+      numero: 1
+    });
+    await servico.liberarCompartimento(dispositivo.id, compartimento.id, {});
+
+    const comandos = await servico.listarComandosPendentes('pillgator-01');
+
+    expect(comandos).toHaveLength(1);
+    expect(comandosRepositorio.comandos[0]?.status).toBe('enviado');
+  });
+
+  it('deve registrar evento iot sem duplicar chave', async () => {
+    const { eventosRepositorio, servico } = criarServico();
+    const dispositivo = await servico.criar({
+      pacienteId: 'paciente-1',
+      nome: 'PillGator',
+      identificador: 'pillgator-01'
+    });
+    await servico.criarCompartimento(dispositivo.id, {
+      numero: 1,
+      medicamentoId: 'medicamento-1'
+    });
+    const entrada = {
+      chaveEvento: 'evt-001',
+      tipo: 'compartimento_aberto',
+      compartimentoNumero: 1,
+      ocorridoEm: '2026-01-01T10:00:00.000Z'
+    };
+
+    const evento = await servico.registrarEventoDispositivo(
+      'pillgator-01',
+      entrada
+    );
+    const repetido = await servico.registrarEventoDispositivo(
+      'pillgator-01',
+      entrada
+    );
+
+    expect(evento.id).toBe(repetido.id);
+    expect(eventosRepositorio.eventos).toHaveLength(1);
+    expect(evento).toMatchObject({
+      tipo: 'compartimento_aberto',
+      origem: 'iot',
       medicamentoId: 'medicamento-1'
     });
   });
