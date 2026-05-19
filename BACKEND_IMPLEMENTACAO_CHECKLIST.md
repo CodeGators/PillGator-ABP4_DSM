@@ -36,7 +36,7 @@ Este documento guia a conclusao do backend e banco de dados seguindo o fluxo rea
 
 ### 3. Base CSV de Medicamentos
 
-- [ ] Versionar o CSV em pasta adequada do projeto.
+- [x] Versionar o CSV em pasta adequada do projeto.
 - [ ] Criar entidade `BaseMedicamento`.
 - [ ] Criar migration para `base_medicamentos`.
 - [ ] Criar rotina/script de importacao do CSV ISO-8859 separado por `;`.
