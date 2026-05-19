@@ -50,6 +50,11 @@ export const openApiDocument = {
         'Cadastro dos medicamentos do paciente. Aqui ficam dados como nome, dosagem e observacoes. O horario de uso fica em Agendamentos.'
     },
     {
+      name: 'Base de Medicamentos',
+      description:
+        'Consulta da base CSV de medicamentos. Responsaveis usam esta base para encontrar um remedio antes de adicionar ao tratamento do paciente.'
+    },
+    {
       name: 'Agendamentos',
       description:
         'Programacao de quando um medicamento deve ser tomado. Pode ser por horarios fixos ou por intervalo, como de 8 em 8 horas.'
@@ -795,6 +800,63 @@ export const openApiDocument = {
         }
       }
     },
+    '/base-medicamentos': {
+      get: {
+        tags: ['Base de Medicamentos'],
+        summary: 'Consulta medicamentos da base CSV',
+        description:
+          'Busca medicamentos importados do CSV da Anvisa usado no projeto. Esta base e somente consulta: responsavel nao altera nem remove registros daqui.',
+        parameters: [
+          {
+            name: 'busca',
+            in: 'query',
+            required: false,
+            description:
+              'Texto para pesquisar por nome do produto, principio ativo, categoria ou forma fisica.',
+            schema: { type: 'string' },
+            example: 'dipirona'
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Lista de medicamentos encontrados',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/BaseMedicamento' }
+                }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' },
+          '401': { $ref: '#/components/responses/ErroNaoAutorizado' },
+          '403': { $ref: '#/components/responses/ErroPermissao' }
+        }
+      }
+    },
+    '/base-medicamentos/{id}': {
+      get: {
+        tags: ['Base de Medicamentos'],
+        summary: 'Busca medicamento da base pelo id',
+        description:
+          'Retorna os detalhes de um medicamento da base CSV. Use este id futuramente para criar um medicamento no tratamento do paciente.',
+        parameters: [{ $ref: '#/components/parameters/BaseMedicamentoId' }],
+        responses: {
+          '200': {
+            description: 'Medicamento da base encontrado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/BaseMedicamento' }
+              }
+            }
+          },
+          '401': { $ref: '#/components/responses/ErroNaoAutorizado' },
+          '403': { $ref: '#/components/responses/ErroPermissao' },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
     '/notificacoes': {
       get: {
         tags: ['Notificacoes'],
@@ -1444,6 +1506,14 @@ export const openApiDocument = {
         description: 'UUID do medicamento.',
         schema: { type: 'string', format: 'uuid' },
         example: '7b8d7b2a-0d8d-4f87-8a3f-9e5a3f2c1111'
+      },
+      BaseMedicamentoId: {
+        name: 'id',
+        in: 'path',
+        required: true,
+        description: 'UUID do medicamento na base de consulta.',
+        schema: { type: 'string', format: 'uuid' },
+        example: '6a02ecf1-0a2d-447c-9956-2c8fe5104444'
       },
       AgendamentoId: {
         name: 'id',
@@ -2394,6 +2464,71 @@ export const openApiDocument = {
             type: 'string',
             format: 'date-time',
             description: 'Data da ultima atualizacao.'
+          }
+        }
+      },
+      BaseMedicamento: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Identificador do medicamento na base de consulta.'
+          },
+          nomeProduto: {
+            type: 'string',
+            description: 'Nome comercial/produto no CSV.',
+            example: 'AAS'
+          },
+          categoriaProduto: {
+            type: 'string',
+            nullable: true,
+            description: 'Categoria do produto.',
+            example: 'ANALGESICOS NAO NARCOTICOS'
+          },
+          principioAtivo: {
+            type: 'string',
+            nullable: true,
+            description: 'Principio ativo.',
+            example: 'ACIDO ACETILSALICILICO'
+          },
+          concentracao: {
+            type: 'string',
+            nullable: true,
+            description: 'Concentracao informada na base.',
+            example: '100,000'
+          },
+          destinacao: {
+            type: 'string',
+            nullable: true,
+            description: 'Destinacao do medicamento.'
+          },
+          formaFisica: {
+            type: 'string',
+            nullable: true,
+            description: 'Forma fisica/apresentacao.',
+            example: 'COMPRIMIDO SIMPLES'
+          },
+          restricaoPrescricao: {
+            type: 'string',
+            nullable: true,
+            description: 'Restricao de prescricao.',
+            example: 'VENDA SOB PRESCRICAO MEDICA'
+          },
+          restritoHospitalar: {
+            type: 'boolean',
+            description: 'Indica se e restrito a uso hospitalar.'
+          },
+          restricaoUso: {
+            type: 'string',
+            nullable: true,
+            description: 'Restricao de uso.',
+            example: 'Adulto'
+          },
+          fonte: {
+            type: 'string',
+            description: 'Nome da fonte importada.',
+            example: 'TA_RESTRICAO_MEDICAMENTO'
           }
         }
       },

@@ -39,11 +39,13 @@ Este documento guia a conclusao do backend e banco de dados seguindo o fluxo rea
 - [x] Versionar o CSV em pasta adequada do projeto.
 - [x] Criar entidade `BaseMedicamento`.
 - [x] Criar migration para `base_medicamentos`.
-- [ ] Criar rotina/script de importacao do CSV ISO-8859 separado por `;`.
-- [ ] Criar endpoint `GET /base-medicamentos?busca=...`.
-- [ ] Criar endpoint `GET /base-medicamentos/:id`.
-- [ ] Criar testes de importacao e consulta.
-- [ ] Documentar no Swagger.
+- [x] Modelar campos principais da base: produto, categoria, principio ativo, concentracao, forma fisica e restricoes.
+- [x] Criar rotina/script de importacao do CSV ISO-8859 separado por `;`.
+- [x] Salvar medicamentos de referencia no banco local.
+- [x] Criar endpoint `GET /base-medicamentos?busca=...`.
+- [x] Criar endpoint `GET /base-medicamentos/:id`.
+- [x] Criar testes de importacao e consulta.
+- [x] Documentar no Swagger.
 
 ### 4. Medicamento do Paciente
 
