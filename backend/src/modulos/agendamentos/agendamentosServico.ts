@@ -3,13 +3,17 @@ import type { FindOptionsWhere, Repository } from 'typeorm';
 import { AppDataSource } from '../../config/data-source.js';
 import { AgendamentoMedicamento } from '../../entidades/AgendamentoMedicamento.js';
 import { Medicamento } from '../../entidades/Medicamento.js';
+import { PacienteResponsavel } from '../../entidades/PacienteResponsavel.js';
 import { ErroHttp } from '../../erros/ErroHttp.js';
 import type {
   AgendamentoNormalizado,
   AgendamentosServicoContrato,
   AtualizarAgendamentoEntrada,
+  ContextoUsuarioAgendamento,
   CriarAgendamentoEntrada,
-  ListarAgendamentosFiltros
+  ListarAgendamentosFiltros,
+  ListarProximasAdministracoesFiltros,
+  ProximaAdministracao
 } from './agendamentosTipos.js';
 
 const diasSemanaPadrao = [0, 1, 2, 3, 4, 5, 6];
@@ -20,43 +24,99 @@ const tamanhoMaximoCuidados = 1000;
 export class AgendamentosServico implements AgendamentosServicoContrato {
   constructor(
     private readonly agendamentosRepositorio: Repository<AgendamentoMedicamento>,
-    private readonly medicamentosRepositorio: Repository<Medicamento>
+    private readonly medicamentosRepositorio: Repository<Medicamento>,
+    private readonly pacientesResponsaveisRepositorio: Repository<PacienteResponsavel>
   ) {}
 
   public async listar(
-    filtros: ListarAgendamentosFiltros = {}
+    filtros: ListarAgendamentosFiltros = {},
+    contexto?: ContextoUsuarioAgendamento
   ): Promise<AgendamentoMedicamento[]> {
-    const where: FindOptionsWhere<AgendamentoMedicamento> = { ativo: true };
+    const medicamentoId = this.validarTextoOpcional(
+      'medicamentoId',
+      filtros.medicamentoId,
+      80
+    );
+    const pacienteId = this.validarTextoOpcional(
+      'pacienteId',
+      filtros.pacienteId,
+      36
+    );
 
-    if (filtros.medicamentoId) {
-      where.medicamentoId = filtros.medicamentoId;
+    if (medicamentoId) {
+      const medicamento = await this.garantirMedicamentoAtivo(medicamentoId);
+      await this.garantirAcessoMedicamento(medicamento, contexto);
     }
 
-    return this.agendamentosRepositorio.find({
+    if (pacienteId) {
+      await this.garantirAcessoPacienteId(pacienteId, contexto);
+    }
+
+    const where: FindOptionsWhere<AgendamentoMedicamento> = { ativo: true };
+
+    if (medicamentoId) {
+      where.medicamentoId = medicamentoId;
+    }
+
+    const agendamentos = await this.agendamentosRepositorio.find({
       where,
+      relations: { medicamento: true },
       order: {
         medicamentoId: 'ASC',
         criadoEm: 'ASC'
       }
     });
+
+    return this.filtrarPorAcesso(agendamentos, contexto, pacienteId);
   }
 
-  public async buscarPorId(id: string): Promise<AgendamentoMedicamento> {
+  public async listarProximasAdministracoes(
+    filtros: ListarProximasAdministracoesFiltros = {},
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<ProximaAdministracao[]> {
+    const data = this.validarDataOpcional('data', filtros.data) ??
+      new Date().toISOString().slice(0, 10);
+    const pacienteId = this.validarTextoOpcional(
+      'pacienteId',
+      filtros.pacienteId,
+      36
+    );
+    const agendamentos = await this.listar({ pacienteId }, contexto);
+
+    return agendamentos
+      .flatMap((agendamento) => this.criarAdministracoesDoDia(agendamento, data))
+      .sort((atual, proximo) =>
+        atual.horarioPrevisto.localeCompare(proximo.horarioPrevisto)
+      );
+  }
+
+  public async buscarPorId(
+    id: string,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<AgendamentoMedicamento> {
     const agendamento = await this.agendamentosRepositorio.findOne({
-      where: { id, ativo: true }
+      where: { id, ativo: true },
+      relations: { medicamento: true }
     });
 
     if (!agendamento) {
       throw new ErroHttp(404, 'Agendamento nao encontrado');
     }
 
+    await this.garantirAcessoAgendamento(agendamento, contexto);
+
     return agendamento;
   }
 
   public async criar(
-    entrada: CriarAgendamentoEntrada
+    entrada: CriarAgendamentoEntrada,
+    contexto?: ContextoUsuarioAgendamento
   ): Promise<AgendamentoMedicamento> {
-    const dados = await this.normalizarAgendamento(entrada);
+    const dados = await this.normalizarAgendamento(
+      entrada,
+      undefined,
+      contexto
+    );
     const agendamento = this.agendamentosRepositorio.create(dados);
 
     return this.agendamentosRepositorio.save(agendamento);
@@ -64,18 +124,26 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
 
   public async atualizar(
     id: string,
-    entrada: AtualizarAgendamentoEntrada
+    entrada: AtualizarAgendamentoEntrada,
+    contexto?: ContextoUsuarioAgendamento
   ): Promise<AgendamentoMedicamento> {
-    const agendamento = await this.buscarPorId(id);
-    const dados = await this.normalizarAgendamento(entrada, agendamento);
+    const agendamento = await this.buscarPorId(id, contexto);
+    const dados = await this.normalizarAgendamento(
+      entrada,
+      agendamento,
+      contexto
+    );
 
     Object.assign(agendamento, dados);
 
     return this.agendamentosRepositorio.save(agendamento);
   }
 
-  public async remover(id: string): Promise<void> {
-    const agendamento = await this.buscarPorId(id);
+  public async remover(
+    id: string,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<void> {
+    const agendamento = await this.buscarPorId(id, contexto);
     agendamento.ativo = false;
 
     await this.agendamentosRepositorio.save(agendamento);
@@ -83,15 +151,16 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
 
   private async normalizarAgendamento(
     entrada: CriarAgendamentoEntrada | AtualizarAgendamentoEntrada,
-    agendamentoAtual?: AgendamentoMedicamento
+    agendamentoAtual?: AgendamentoMedicamento,
+    contexto?: ContextoUsuarioAgendamento
   ): Promise<AgendamentoNormalizado> {
     const medicamentoId = this.validarTextoObrigatorio(
       'medicamentoId',
       entrada.medicamentoId ?? agendamentoAtual?.medicamentoId,
       80
     );
-
-    await this.garantirMedicamentoAtivo(medicamentoId);
+    const medicamento = await this.garantirMedicamentoAtivo(medicamentoId);
+    await this.garantirAcessoMedicamento(medicamento, contexto);
 
     const tipo = this.validarTipo(entrada.tipo ?? agendamentoAtual?.tipo);
     const diasSemana = this.validarDiasSemana(
@@ -172,7 +241,9 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
     };
   }
 
-  private async garantirMedicamentoAtivo(medicamentoId: string): Promise<void> {
+  private async garantirMedicamentoAtivo(
+    medicamentoId: string
+  ): Promise<Medicamento> {
     const medicamento = await this.medicamentosRepositorio.findOne({
       where: { id: medicamentoId, ativo: true }
     });
@@ -180,6 +251,180 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
     if (!medicamento) {
       throw new ErroHttp(404, 'Medicamento nao encontrado para agendamento');
     }
+
+    if (!medicamento.pacienteId) {
+      throw new ErroHttp(
+        400,
+        'Medicamento precisa estar vinculado a um paciente para receber agendamento'
+      );
+    }
+
+    return medicamento;
+  }
+
+  private async garantirAcessoAgendamento(
+    agendamento: AgendamentoMedicamento,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<void> {
+    const medicamento = agendamento.medicamento ??
+      await this.garantirMedicamentoAtivo(agendamento.medicamentoId);
+
+    await this.garantirAcessoMedicamento(medicamento, contexto);
+  }
+
+  private async garantirAcessoMedicamento(
+    medicamento: Medicamento,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<void> {
+    if (!medicamento.pacienteId) {
+      throw new ErroHttp(
+        400,
+        'Medicamento precisa estar vinculado a um paciente para receber agendamento'
+      );
+    }
+
+    await this.garantirAcessoPacienteId(medicamento.pacienteId, contexto);
+  }
+
+  private async garantirAcessoPacienteId(
+    pacienteId: string,
+    contexto?: ContextoUsuarioAgendamento
+  ): Promise<void> {
+    if (!contexto || contexto.tipo === 'administrador') {
+      return;
+    }
+
+    const vinculo = await this.pacientesResponsaveisRepositorio.findOne({
+      where: {
+        pacienteId,
+        responsavelId: contexto.id,
+        ativo: true
+      }
+    });
+
+    if (vinculo) {
+      return;
+    }
+
+    throw new ErroHttp(
+      403,
+      'Usuario sem permissao para acessar agendamentos deste paciente'
+    );
+  }
+
+  private async filtrarPorAcesso(
+    agendamentos: AgendamentoMedicamento[],
+    contexto?: ContextoUsuarioAgendamento,
+    pacienteId?: string | null
+  ): Promise<AgendamentoMedicamento[]> {
+    const pacienteIdsPermitidos = await this.obterPacienteIdsPermitidos(
+      contexto,
+      pacienteId
+    );
+
+    return agendamentos.filter((agendamento) => {
+      const idPaciente = agendamento.medicamento?.pacienteId;
+
+      if (!idPaciente) {
+        return false;
+      }
+
+      if (pacienteId && idPaciente !== pacienteId) {
+        return false;
+      }
+
+      if (!pacienteIdsPermitidos) {
+        return true;
+      }
+
+      return pacienteIdsPermitidos.includes(idPaciente);
+    });
+  }
+
+  private async obterPacienteIdsPermitidos(
+    contexto?: ContextoUsuarioAgendamento,
+    pacienteId?: string | null
+  ): Promise<string[] | null> {
+    if (!contexto || contexto.tipo === 'administrador') {
+      return pacienteId ? [pacienteId] : null;
+    }
+
+    const vinculos = await this.pacientesResponsaveisRepositorio.find({
+      where: { responsavelId: contexto.id, ativo: true }
+    });
+
+    return vinculos.map((vinculo) => vinculo.pacienteId);
+  }
+
+  private criarAdministracoesDoDia(
+    agendamento: AgendamentoMedicamento,
+    data: string
+  ): ProximaAdministracao[] {
+    const medicamento = agendamento.medicamento;
+
+    if (!medicamento?.pacienteId || !this.agendamentoValeNaData(agendamento, data)) {
+      return [];
+    }
+
+    const horarios = agendamento.tipo === 'horarios_fixos'
+      ? agendamento.horarios ?? []
+      : this.gerarHorariosIntervalo(
+          agendamento.horarioInicio,
+          agendamento.intervaloHoras
+        );
+
+    return horarios.map((horario) => ({
+      agendamentoId: agendamento.id,
+      medicamentoId: agendamento.medicamentoId,
+      pacienteId: medicamento.pacienteId!,
+      medicamentoNome: medicamento.nome,
+      horarioPrevisto: `${data}T${horario}:00`,
+      tipo: agendamento.tipo,
+      cuidados: agendamento.cuidados
+    }));
+  }
+
+  private agendamentoValeNaData(
+    agendamento: AgendamentoMedicamento,
+    data: string
+  ): boolean {
+    if (agendamento.inicioEm && data < agendamento.inicioEm) {
+      return false;
+    }
+
+    if (agendamento.fimEm && data > agendamento.fimEm) {
+      return false;
+    }
+
+    const diaSemana = new Date(`${data}T00:00:00.000Z`).getUTCDay();
+
+    return agendamento.diasSemana.includes(diaSemana);
+  }
+
+  private gerarHorariosIntervalo(
+    horarioInicio: string | null,
+    intervaloHoras: number | null
+  ): string[] {
+    if (!horarioInicio || !intervaloHoras) {
+      return [];
+    }
+
+    const [horaInicialTexto, minutoInicialTexto] = horarioInicio.split(':');
+    const horaInicial = Number(horaInicialTexto);
+    const minutoInicial = Number(minutoInicialTexto);
+    const horarios: string[] = [];
+
+    for (
+      let hora = horaInicial;
+      hora < 24;
+      hora += intervaloHoras
+    ) {
+      const horaTexto = String(hora).padStart(2, '0');
+      const minutoTexto = String(minutoInicial).padStart(2, '0');
+      horarios.push(`${horaTexto}:${minutoTexto}`);
+    }
+
+    return horarios;
   }
 
   private validarTipo(valor: unknown): 'horarios_fixos' | 'intervalo' {
@@ -279,7 +524,7 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
     valor: unknown,
     tamanhoMaximo: number
   ): string | null {
-    if (valor === undefined || valor === null) {
+    if (valor === undefined || valor === null || valor === '') {
       return null;
     }
 
@@ -335,6 +580,7 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
 export function criarAgendamentosServico(): AgendamentosServico {
   return new AgendamentosServico(
     AppDataSource.getRepository(AgendamentoMedicamento),
-    AppDataSource.getRepository(Medicamento)
+    AppDataSource.getRepository(Medicamento),
+    AppDataSource.getRepository(PacienteResponsavel)
   );
 }

@@ -49,21 +49,21 @@ Este documento guia a conclusao do backend e banco de dados seguindo o fluxo rea
 
 ### 4. Medicamento do Paciente
 
-- [ ] Refatorar `medicamentos` para representar medicamento do paciente.
-- [ ] Adicionar `pacienteId`.
-- [ ] Adicionar `baseMedicamentoId` opcional.
-- [ ] Adicionar quantidade administrada e unidade.
-- [ ] Garantir que responsavel so altere medicamentos dos seus pacientes.
-- [ ] Impedir alteracao da base de medicamentos por responsavel.
-- [ ] Atualizar testes e Swagger.
+- [x] Refatorar `medicamentos` para representar medicamento do paciente.
+- [x] Adicionar `pacienteId`.
+- [x] Adicionar `baseMedicamentoId` opcional.
+- [x] Adicionar quantidade administrada e unidade.
+- [x] Garantir que responsavel so altere medicamentos dos seus pacientes.
+- [x] Impedir alteracao da base de medicamentos por responsavel.
+- [x] Atualizar testes e Swagger.
 
 ### 5. Agendamentos
 
-- [ ] Garantir que agendamento sempre pertence a medicamento do paciente.
-- [ ] Validar horarios fixos, dias da semana e intervalos.
-- [ ] Validar permissao pelo paciente do medicamento.
-- [ ] Preparar consulta de proximas administracoes por paciente/responsavel.
-- [ ] Atualizar testes e Swagger.
+- [x] Garantir que agendamento sempre pertence a medicamento do paciente.
+- [x] Validar horarios fixos, dias da semana e intervalos.
+- [x] Validar permissao pelo paciente do medicamento.
+- [x] Preparar consulta de proximas administracoes por paciente/responsavel.
+- [x] Atualizar testes e Swagger.
 
 ### 6. Notificacoes Push
 

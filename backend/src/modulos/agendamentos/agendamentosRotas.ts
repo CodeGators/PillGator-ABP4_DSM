@@ -11,6 +11,10 @@ export function criarAgendamentosRotas(
   const controlador = new AgendamentosControlador(servico);
 
   rotas.get('/', controlador.listar);
+  rotas.get(
+    '/proximas-administracoes',
+    controlador.listarProximasAdministracoes
+  );
   rotas.post('/', controlador.criar);
   rotas.get('/:id', controlador.buscarPorId);
   rotas.put('/:id', controlador.atualizar);

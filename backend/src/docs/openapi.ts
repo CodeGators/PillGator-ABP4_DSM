@@ -946,9 +946,20 @@ export const openApiDocument = {
     '/medicamentos': {
       get: {
         tags: ['Medicamentos'],
-        summary: 'Lista medicamentos ativos',
+        summary: 'Lista medicamentos ativos dos pacientes',
         description:
-          'Retorna todos os medicamentos ativos cadastrados. Medicamentos removidos por DELETE ficam inativos e nao aparecem nesta listagem.',
+          'Retorna medicamentos cadastrados para os pacientes. Responsavel ve apenas medicamentos dos pacientes vinculados a ele. Use `pacienteId` para filtrar um paciente especifico.',
+        parameters: [
+          {
+            name: 'pacienteId',
+            in: 'query',
+            required: false,
+            description:
+              'UUID do paciente. Quando enviado, lista apenas os medicamentos desse paciente.',
+            schema: { type: 'string', format: 'uuid' },
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
+          }
+        ],
         responses: {
           '200': {
             description: 'Lista de medicamentos',
@@ -961,8 +972,12 @@ export const openApiDocument = {
                 example: [
                   {
                     id: '7b8d7b2a-0d8d-4f87-8a3f-9e5a3f2c1111',
+                    pacienteId: '3fd35f96-0e71-4b08-9101-123456789abc',
+                    baseMedicamentoId: '6a02ecf1-0a2d-447c-9956-2c8fe5104444',
                     nome: 'Losartana',
                     dosagem: '50mg',
+                    quantidadeAdministrada: '1',
+                    unidadeAdministracao: 'comprimido',
                     observacoes: 'Tomar pela manha com agua.',
                     ativo: true,
                     criadoEm: '2026-05-12T12:00:00.000Z',
@@ -976,30 +991,35 @@ export const openApiDocument = {
       },
       post: {
         tags: ['Medicamentos'],
-        summary: 'Cadastra um medicamento',
+        summary: 'Cadastra medicamento para um paciente',
         description:
-          'Cria um medicamento para depois ser usado em agendamentos. Envie `nome` e `dosagem`. `observacoes` e opcional e serve para instrucoes simples, por exemplo "tomar com agua".',
+          'Cria o medicamento que um paciente vai tomar. Este cadastro nao altera a base de medicamentos: ele apenas copia ou referencia um item da base para o tratamento do paciente. Responsavel so pode cadastrar para pacientes vinculados a ele.',
         requestBody: {
           required: true,
           description:
-            'Dados do medicamento. `nome` e `dosagem` sao obrigatorios. Nao envie `id`, `ativo`, `criadoEm` ou `atualizadoEm`; o backend cria isso automaticamente.',
+            'Envie `pacienteId`, `quantidadeAdministrada` e `unidadeAdministracao`. Se enviar `baseMedicamentoId`, o backend pode preencher `nome` e `dosagem` usando a base CSV; ainda assim voce pode enviar `nome` e `dosagem` manualmente quando precisar ajustar a prescricao.',
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/CriarMedicamento' },
               examples: {
-                losartana: {
-                  summary: 'Exemplo simples',
+                usandoBase: {
+                  summary: 'Usando medicamento da base',
                   value: {
-                    nome: 'Losartana',
-                    dosagem: '50mg',
+                    pacienteId: '3fd35f96-0e71-4b08-9101-123456789abc',
+                    baseMedicamentoId: '6a02ecf1-0a2d-447c-9956-2c8fe5104444',
+                    quantidadeAdministrada: '1',
+                    unidadeAdministracao: 'comprimido',
                     observacoes: 'Tomar pela manha com agua.'
                   }
                 },
-                dipirona: {
-                  summary: 'Medicamento sem observacao',
+                manual: {
+                  summary: 'Cadastro manual',
                   value: {
+                    pacienteId: '3fd35f96-0e71-4b08-9101-123456789abc',
                     nome: 'Dipirona',
-                    dosagem: '500mg'
+                    dosagem: '500mg',
+                    quantidadeAdministrada: '20',
+                    unidadeAdministracao: 'gotas'
                   }
                 }
               }
@@ -1040,9 +1060,9 @@ export const openApiDocument = {
       },
       put: {
         tags: ['Medicamentos'],
-        summary: 'Atualiza um medicamento',
+        summary: 'Atualiza medicamento do paciente',
         description:
-          'Atualiza os dados de um medicamento. Voce pode enviar todos os campos editaveis ou apenas o campo que quer alterar. Para reativar ou desativar, use `ativo` com true ou false.',
+          'Atualiza o cadastro do medicamento daquele paciente. Isso nao edita a base CSV. Responsavel so consegue alterar medicamento de paciente vinculado.',
         parameters: [{ $ref: '#/components/parameters/MedicamentoId' }],
         requestBody: {
           required: true,
@@ -1054,6 +1074,8 @@ export const openApiDocument = {
               example: {
                 nome: 'Losartana Potassica',
                 dosagem: '50mg',
+                quantidadeAdministrada: '1',
+                unidadeAdministracao: 'comprimido',
                 observacoes: 'Tomar sempre no mesmo horario.',
                 ativo: true
               }
@@ -1075,9 +1097,9 @@ export const openApiDocument = {
       },
       delete: {
         tags: ['Medicamentos'],
-        summary: 'Remove um medicamento',
+        summary: 'Remove medicamento do paciente',
         description:
-          'Faz remocao logica do medicamento, alterando `ativo` para false. O registro continua no banco, mas nao aparece mais na listagem padrao.',
+          'Remove o medicamento do tratamento do paciente usando remocao logica. A base CSV nao e alterada. Responsavel so remove medicamento de paciente vinculado.',
         parameters: [{ $ref: '#/components/parameters/MedicamentoId' }],
         responses: {
           '204': { description: 'Medicamento removido sem corpo de resposta' },
@@ -1090,7 +1112,7 @@ export const openApiDocument = {
         tags: ['Agendamentos'],
         summary: 'Lista agendamentos ativos',
         description:
-          'Lista os agendamentos cadastrados. Se quiser listar apenas os agendamentos de um medicamento, envie `medicamentoId` como filtro na query.',
+          'Lista os agendamentos cadastrados. Responsavel ve apenas agendamentos de medicamentos dos pacientes vinculados a ele. Use `medicamentoId` ou `pacienteId` para filtrar.',
         parameters: [
           {
             name: 'medicamentoId',
@@ -1100,6 +1122,15 @@ export const openApiDocument = {
               'Opcional. UUID do medicamento para filtrar apenas os agendamentos dele.',
             schema: { type: 'string', format: 'uuid' },
             example: '7b8d7b2a-0d8d-4f87-8a3f-9e5a3f2c1111'
+          },
+          {
+            name: 'pacienteId',
+            in: 'query',
+            required: false,
+            description:
+              'Opcional. UUID do paciente para listar agendamentos dos medicamentos dele.',
+            schema: { type: 'string', format: 'uuid' },
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
           }
         ],
         responses: {
@@ -1121,7 +1152,7 @@ export const openApiDocument = {
         tags: ['Agendamentos'],
         summary: 'Cria um agendamento para um medicamento',
         description:
-          'Cria a regra de horario de um medicamento. Primeiro cadastre um medicamento em `POST /medicamentos`, copie o `id` retornado e use esse valor em `medicamentoId` aqui.',
+          'Cria a regra de horario de um medicamento do paciente. Primeiro cadastre o medicamento em `POST /medicamentos`, copie o `id` retornado e use esse valor em `medicamentoId` aqui. Responsavel so agenda medicamentos de pacientes vinculados a ele.',
         requestBody: {
           required: true,
           description:
@@ -1176,6 +1207,50 @@ export const openApiDocument = {
           },
           '400': { $ref: '#/components/responses/ErroValidacao' },
           '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/agendamentos/proximas-administracoes': {
+      get: {
+        tags: ['Agendamentos'],
+        summary: 'Lista proximas administracoes do dia',
+        description:
+          'Mostra os horarios previstos de administracao para uma data. Use para o app montar a agenda do responsavel ou de um paciente especifico.',
+        parameters: [
+          {
+            name: 'pacienteId',
+            in: 'query',
+            required: false,
+            description:
+              'Opcional. UUID do paciente. Responsavel so consegue consultar pacientes vinculados.',
+            schema: { type: 'string', format: 'uuid' },
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
+          },
+          {
+            name: 'data',
+            in: 'query',
+            required: false,
+            description:
+              'Opcional. Data no formato YYYY-MM-DD. Se nao enviar, o backend usa a data atual.',
+            schema: { type: 'string', format: 'date' },
+            example: '2026-05-12'
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Horarios previstos encontrados',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    $ref: '#/components/schemas/ProximaAdministracao'
+                  }
+                }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' }
         }
       }
     },
@@ -2435,15 +2510,44 @@ export const openApiDocument = {
             format: 'uuid',
             description: 'Identificador unico criado pelo backend.'
           },
+          pacienteId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Paciente que usa este medicamento. Em novos cadastros deve sempre existir.'
+          },
+          baseMedicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Medicamento da base CSV usado como referencia. Pode ser null em cadastro manual.'
+          },
           nome: {
             type: 'string',
-            description: 'Nome do medicamento.',
+            description:
+              'Nome do medicamento no tratamento do paciente. Pode vir da base ou ser informado manualmente.',
             example: 'Losartana'
           },
           dosagem: {
             type: 'string',
             description: 'Dosagem prescrita ou cadastrada.',
             example: '50mg'
+          },
+          quantidadeAdministrada: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Quantidade que deve ser administrada em cada horario. Exemplo: 1, 2, 20.',
+            example: '1'
+          },
+          unidadeAdministracao: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Unidade da quantidade administrada. Exemplo: comprimido, gotas, ml.',
+            example: 'comprimido'
           },
           observacoes: {
             type: 'string',
@@ -2534,19 +2638,53 @@ export const openApiDocument = {
       },
       CriarMedicamento: {
         type: 'object',
-        required: ['nome', 'dosagem'],
+        required: [
+          'pacienteId',
+          'quantidadeAdministrada',
+          'unidadeAdministracao'
+        ],
         properties: {
+          pacienteId: {
+            type: 'string',
+            format: 'uuid',
+            description:
+              'Obrigatorio. UUID do paciente que vai tomar este medicamento.',
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
+          },
+          baseMedicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Opcional. UUID retornado em GET /base-medicamentos. Use quando o remedio foi encontrado na base CSV.'
+          },
           nome: {
             type: 'string',
             maxLength: 120,
-            description: 'Obrigatorio. Nome do medicamento.',
+            description:
+              'Obrigatorio apenas quando nao usar baseMedicamentoId ou quando quiser sobrescrever o nome da base.',
             example: 'Losartana'
           },
           dosagem: {
             type: 'string',
             maxLength: 60,
-            description: 'Obrigatorio. Dosagem do medicamento.',
+            description:
+              'Obrigatorio apenas quando a base nao informar concentracao ou quando quiser sobrescrever a dosagem.',
             example: '50mg'
+          },
+          quantidadeAdministrada: {
+            type: 'string',
+            maxLength: 80,
+            description:
+              'Obrigatorio. Quantidade que o paciente deve receber em cada administracao.',
+            example: '1'
+          },
+          unidadeAdministracao: {
+            type: 'string',
+            maxLength: 40,
+            description:
+              'Obrigatorio. Unidade da quantidade: comprimido, gotas, ml, capsula etc.',
+            example: 'comprimido'
           },
           observacoes: {
             type: 'string',
@@ -2560,6 +2698,13 @@ export const openApiDocument = {
       AtualizarMedicamento: {
         type: 'object',
         properties: {
+          baseMedicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Opcional. Envie um UUID da base para trocar a referencia, ou null para remover a referencia.'
+          },
           nome: {
             type: 'string',
             maxLength: 120,
@@ -2571,6 +2716,18 @@ export const openApiDocument = {
             maxLength: 60,
             description: 'Opcional. Nova dosagem do medicamento.',
             example: '50mg'
+          },
+          quantidadeAdministrada: {
+            type: 'string',
+            maxLength: 80,
+            description: 'Opcional. Nova quantidade por administracao.',
+            example: '2'
+          },
+          unidadeAdministracao: {
+            type: 'string',
+            maxLength: 40,
+            description: 'Opcional. Nova unidade da quantidade administrada.',
+            example: 'comprimidos'
           },
           observacoes: {
             type: 'string',
@@ -2653,6 +2810,48 @@ export const openApiDocument = {
           ativo: { type: 'boolean' },
           criadoEm: { type: 'string', format: 'date-time' },
           atualizadoEm: { type: 'string', format: 'date-time' }
+        }
+      },
+      ProximaAdministracao: {
+        type: 'object',
+        properties: {
+          agendamentoId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Agendamento que gerou este horario.'
+          },
+          medicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Medicamento do paciente que deve ser administrado.'
+          },
+          pacienteId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Paciente que recebera o medicamento.'
+          },
+          medicamentoNome: {
+            type: 'string',
+            description: 'Nome do medicamento para exibir no app.',
+            example: 'Losartana'
+          },
+          horarioPrevisto: {
+            type: 'string',
+            description:
+              'Data e horario previstos no formato YYYY-MM-DDTHH:mm:ss.',
+            example: '2026-05-12T08:00:00'
+          },
+          tipo: {
+            type: 'string',
+            enum: ['horarios_fixos', 'intervalo'],
+            description: 'Tipo de regra que gerou o horario.'
+          },
+          cuidados: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Cuidados cadastrados no agendamento, quando existirem.'
+          }
         }
       },
       CriarAgendamento: {

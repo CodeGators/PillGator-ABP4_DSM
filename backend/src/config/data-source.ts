@@ -11,6 +11,7 @@ import { Notificacao } from '../entidades/Notificacao.js';
 import { Paciente } from '../entidades/Paciente.js';
 import { PacienteResponsavel } from '../entidades/PacienteResponsavel.js';
 import { Usuario } from '../entidades/Usuario.js';
+import { AtualizarMedicamentosPaciente1800000000000 } from '../database/migrations/1800000000000-AtualizarMedicamentosPaciente.js';
 import { CriarTabelaBaseMedicamentos1790000000000 } from '../database/migrations/1790000000000-CriarTabelaBaseMedicamentos.js';
 import { AdicionarDadosCadastroUsuarios1780000000000 } from '../database/migrations/1780000000000-AdicionarDadosCadastroUsuarios.js';
 import { CriarTabelaNotificacoes1770000000000 } from '../database/migrations/1770000000000-CriarTabelaNotificacoes.js';
@@ -48,6 +49,7 @@ export const AppDataSource = new DataSource({
     CriarTabelasDispositivosCompartimentos1760000000000,
     CriarTabelaNotificacoes1770000000000,
     AdicionarDadosCadastroUsuarios1780000000000,
-    CriarTabelaBaseMedicamentos1790000000000
+    CriarTabelaBaseMedicamentos1790000000000,
+    AtualizarMedicamentosPaciente1800000000000
   ]
 });
