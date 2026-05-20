@@ -13,6 +13,7 @@ import { Medicamento } from './Medicamento.js';
 export type TipoEventoMedicamento =
   | 'alerta_emitido'
   | 'compartimento_aberto'
+  | 'compartimento_fechado'
   | 'medicamento_retirado'
   | 'atraso'
   | 'falha';

@@ -13,12 +13,14 @@
     "typeorm": "typeorm-ts-node-esm -d src/config/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "db:check": "npm run build && node dist/src/scripts/verificar-banco.js"
+    "db:check": "npm run build && node dist/src/scripts/verificar-banco.js",
+    "base-medicamentos:importar": "npm run build && node dist/src/scripts/importar-base-medicamentos.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

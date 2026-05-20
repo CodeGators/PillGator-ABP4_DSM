@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 
 import { AgendamentoMedicamento } from '../entidades/AgendamentoMedicamento.js';
+import { BaseMedicamento } from '../entidades/BaseMedicamento.js';
+import { ComandoDispositivo } from '../entidades/ComandoDispositivo.js';
 import { Compartimento } from '../entidades/Compartimento.js';
 import { Dispositivo } from '../entidades/Dispositivo.js';
 import { EventoMedicamento } from '../entidades/EventoMedicamento.js';
@@ -9,7 +11,13 @@ import { Medicamento } from '../entidades/Medicamento.js';
 import { Notificacao } from '../entidades/Notificacao.js';
 import { Paciente } from '../entidades/Paciente.js';
 import { PacienteResponsavel } from '../entidades/PacienteResponsavel.js';
+import { TokenPush } from '../entidades/TokenPush.js';
 import { Usuario } from '../entidades/Usuario.js';
+import { CriarTabelaComandosDispositivos1820000000000 } from '../database/migrations/1820000000000-CriarTabelaComandosDispositivos.js';
+import { CriarTabelaTokensPush1810000000000 } from '../database/migrations/1810000000000-CriarTabelaTokensPush.js';
+import { AtualizarMedicamentosPaciente1800000000000 } from '../database/migrations/1800000000000-AtualizarMedicamentosPaciente.js';
+import { CriarTabelaBaseMedicamentos1790000000000 } from '../database/migrations/1790000000000-CriarTabelaBaseMedicamentos.js';
+import { AdicionarDadosCadastroUsuarios1780000000000 } from '../database/migrations/1780000000000-AdicionarDadosCadastroUsuarios.js';
 import { CriarTabelaNotificacoes1770000000000 } from '../database/migrations/1770000000000-CriarTabelaNotificacoes.js';
 import { CriarTabelasDispositivosCompartimentos1760000000000 } from '../database/migrations/1760000000000-CriarTabelasDispositivosCompartimentos.js';
 import { AdicionarSenhaHashUsuarios1750000000000 } from '../database/migrations/1750000000000-AdicionarSenhaHashUsuarios.js';
@@ -26,13 +34,16 @@ export const AppDataSource = new DataSource({
   logging: false,
   entities: [
     Medicamento,
+    BaseMedicamento,
     AgendamentoMedicamento,
     EventoMedicamento,
     Usuario,
     Paciente,
     PacienteResponsavel,
+    TokenPush,
     Dispositivo,
     Compartimento,
+    ComandoDispositivo,
     Notificacao
   ],
   migrations: [
@@ -42,6 +53,11 @@ export const AppDataSource = new DataSource({
     CriarTabelasUsuariosPacientes1740000000000,
     AdicionarSenhaHashUsuarios1750000000000,
     CriarTabelasDispositivosCompartimentos1760000000000,
-    CriarTabelaNotificacoes1770000000000
+    CriarTabelaNotificacoes1770000000000,
+    AdicionarDadosCadastroUsuarios1780000000000,
+    CriarTabelaBaseMedicamentos1790000000000,
+    AtualizarMedicamentosPaciente1800000000000,
+    CriarTabelaTokensPush1810000000000,
+    CriarTabelaComandosDispositivos1820000000000
   ]
 });

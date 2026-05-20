@@ -34,54 +34,74 @@ function criarServicoMock(sobrescritas: Partial<AgendamentosServicoContrato> = {
   const agendamento = criarAgendamentoTeste();
   const chamadas = {
     listar: [] as unknown[],
-    buscarPorId: [] as string[],
-    criar: [] as unknown[],
-    atualizar: [] as Array<[string, unknown]>,
-    remover: [] as string[]
+    listarProximasAdministracoes: [] as unknown[],
+    buscarPorId: [] as Array<[string, unknown]>,
+    criar: [] as Array<[unknown, unknown]>,
+    atualizar: [] as Array<[string, unknown, unknown]>,
+    remover: [] as Array<[string, unknown]>
   };
 
   const servico: AgendamentosServicoContrato = {
-    listar: async (filtros) => {
-      chamadas.listar.push(filtros);
+    listar: async (filtros, contexto) => {
+      chamadas.listar.push({ filtros, contexto });
 
       if (sobrescritas.listar) {
-        return sobrescritas.listar(filtros);
+        return sobrescritas.listar(filtros, contexto);
       }
 
       return [agendamento];
     },
-    buscarPorId: async (id) => {
-      chamadas.buscarPorId.push(id);
+    listarProximasAdministracoes: async (filtros, contexto) => {
+      chamadas.listarProximasAdministracoes.push({ filtros, contexto });
+
+      if (sobrescritas.listarProximasAdministracoes) {
+        return sobrescritas.listarProximasAdministracoes(filtros, contexto);
+      }
+
+      return [
+        {
+          agendamentoId: 'agendamento-1',
+          medicamentoId: 'medicamento-1',
+          pacienteId: 'paciente-1',
+          medicamentoNome: 'Losartana',
+          horarioPrevisto: '2026-05-01T08:00:00',
+          tipo: 'horarios_fixos',
+          cuidados: null
+        }
+      ];
+    },
+    buscarPorId: async (id, contexto) => {
+      chamadas.buscarPorId.push([id, contexto]);
 
       if (sobrescritas.buscarPorId) {
-        return sobrescritas.buscarPorId(id);
+        return sobrescritas.buscarPorId(id, contexto);
       }
 
       return agendamento;
     },
-    criar: async (entrada) => {
-      chamadas.criar.push(entrada);
+    criar: async (entrada, contexto) => {
+      chamadas.criar.push([entrada, contexto]);
 
       if (sobrescritas.criar) {
-        return sobrescritas.criar(entrada);
+        return sobrescritas.criar(entrada, contexto);
       }
 
       return agendamento;
     },
-    atualizar: async (id, entrada) => {
-      chamadas.atualizar.push([id, entrada]);
+    atualizar: async (id, entrada, contexto) => {
+      chamadas.atualizar.push([id, entrada, contexto]);
 
       if (sobrescritas.atualizar) {
-        return sobrescritas.atualizar(id, entrada);
+        return sobrescritas.atualizar(id, entrada, contexto);
       }
 
       return agendamento;
     },
-    remover: async (id) => {
-      chamadas.remover.push(id);
+    remover: async (id, contexto) => {
+      chamadas.remover.push([id, contexto]);
 
       if (sobrescritas.remover) {
-        return sobrescritas.remover(id);
+        return sobrescritas.remover(id, contexto);
       }
     }
   };
@@ -95,15 +115,41 @@ describe('Rotas de agendamentos', () => {
     const app = criarApp({ agendamentosServico: servico, autenticacaoAtiva: false });
 
     const response = await request(app).get(
-      '/agendamentos?medicamentoId=medicamento-1'
+      '/agendamentos?medicamentoId=medicamento-1&pacienteId=paciente-1'
     );
 
     expect(response.status).toBe(200);
-    expect(chamadas.listar).toEqual([{ medicamentoId: 'medicamento-1' }]);
+    expect(chamadas.listar).toEqual([
+      {
+        filtros: { medicamentoId: 'medicamento-1', pacienteId: 'paciente-1' },
+        contexto: undefined
+      }
+    ]);
     expect(response.body[0]).toMatchObject({
       id: 'agendamento-1',
       medicamentoId: 'medicamento-1',
       tipo: 'horarios_fixos'
+    });
+  });
+
+  it('deve listar proximas administracoes', async () => {
+    const { servico, chamadas } = criarServicoMock();
+    const app = criarApp({ agendamentosServico: servico, autenticacaoAtiva: false });
+
+    const response = await request(app).get(
+      '/agendamentos/proximas-administracoes?pacienteId=paciente-1&data=2026-05-01'
+    );
+
+    expect(response.status).toBe(200);
+    expect(chamadas.listarProximasAdministracoes).toEqual([
+      {
+        filtros: { pacienteId: 'paciente-1', data: '2026-05-01' },
+        contexto: undefined
+      }
+    ]);
+    expect(response.body[0]).toMatchObject({
+      agendamentoId: 'agendamento-1',
+      horarioPrevisto: '2026-05-01T08:00:00'
     });
   });
 
@@ -121,7 +167,7 @@ describe('Rotas de agendamentos', () => {
     const response = await request(app).post('/agendamentos').send(entrada);
 
     expect(response.status).toBe(201);
-    expect(chamadas.criar).toEqual([entrada]);
+    expect(chamadas.criar).toEqual([[entrada, undefined]]);
   });
 
   it('deve atualizar agendamento', async () => {
@@ -134,7 +180,9 @@ describe('Rotas de agendamentos', () => {
       .send(entrada);
 
     expect(response.status).toBe(200);
-    expect(chamadas.atualizar).toEqual([['agendamento-1', entrada]]);
+    expect(chamadas.atualizar).toEqual([
+      ['agendamento-1', entrada, undefined]
+    ]);
   });
 
   it('deve remover agendamento', async () => {
@@ -144,7 +192,7 @@ describe('Rotas de agendamentos', () => {
     const response = await request(app).delete('/agendamentos/agendamento-1');
 
     expect(response.status).toBe(204);
-    expect(chamadas.remover).toEqual(['agendamento-1']);
+    expect(chamadas.remover).toEqual([['agendamento-1', undefined]]);
   });
 
   it('deve tratar erro do servico', async () => {

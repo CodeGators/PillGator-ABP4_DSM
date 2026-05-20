@@ -102,8 +102,16 @@ describe('Rotas de usuarios', () => {
     const app = criarApp({ usuariosServico: servico, autenticacaoAtiva: false });
     const entrada = {
       nome: 'Maria Responsavel',
+      cpf: '935.411.347-80',
       email: 'maria@example.com',
       telefone: '11999999999',
+      dataNascimento: '1990-05-20',
+      enderecoRua: 'Rua das Flores',
+      enderecoEstado: 'SP',
+      enderecoCidade: 'Jacarei',
+      enderecoCep: '12345-678',
+      senha: 'senha-segura',
+      confirmarSenha: 'senha-segura',
       tipo: 'responsavel',
       recebeNotificacoes: true
     };

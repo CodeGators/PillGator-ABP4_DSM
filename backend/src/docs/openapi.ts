@@ -50,6 +50,11 @@ export const openApiDocument = {
         'Cadastro dos medicamentos do paciente. Aqui ficam dados como nome, dosagem e observacoes. O horario de uso fica em Agendamentos.'
     },
     {
+      name: 'Base de Medicamentos',
+      description:
+        'Consulta da base CSV de medicamentos. Responsaveis usam esta base para encontrar um remedio antes de adicionar ao tratamento do paciente.'
+    },
+    {
       name: 'Agendamentos',
       description:
         'Programacao de quando um medicamento deve ser tomado. Pode ser por horarios fixos ou por intervalo, como de 8 em 8 horas.'
@@ -154,7 +159,7 @@ export const openApiDocument = {
         tags: ['Usuarios'],
         summary: 'Lista usuarios ativos',
         description:
-          'Retorna usuarios ativos. Use o filtro `tipo` quando quiser listar apenas pacientes, responsaveis ou administradores.',
+          'Retorna usuarios ativos. Use o filtro `tipo` quando quiser listar apenas responsaveis ou administradores. Pacientes ficam em /pacientes.',
         parameters: [
           {
             name: 'tipo',
@@ -193,7 +198,7 @@ export const openApiDocument = {
         requestBody: {
           required: true,
           description:
-            '`nome`, `email` e `tipo` sao obrigatorios. `senha` e opcional para o cadastro, mas necessaria para login. `telefone` e `recebeNotificacoes` tambem sao opcionais. Use `responsavel` para quem vai acessar o app e cuidar de um paciente. Use `administrador` apenas em cadastro feito por administrador autenticado.',
+            '`nome`, `cpf`, `telefone`, `email`, `dataNascimento`, endereco, `senha`, `confirmarSenha` e `tipo` sao obrigatorios. `enderecoComplemento` e `recebeNotificacoes` sao opcionais. Use `responsavel` para quem vai acessar o app e cuidar de um paciente. Use `administrador` apenas em cadastro feito por administrador autenticado.',
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/CriarUsuario' },
@@ -202,9 +207,17 @@ export const openApiDocument = {
                   summary: 'Responsavel com acesso ao sistema',
                   value: {
                     nome: 'Maria Responsavel',
+                    cpf: '935.411.347-80',
                     email: 'maria@example.com',
                     telefone: '11999999999',
+                    dataNascimento: '1990-05-20',
+                    enderecoRua: 'Rua das Flores',
+                    enderecoEstado: 'SP',
+                    enderecoCidade: 'Jacarei',
+                    enderecoCep: '12345-678',
+                    enderecoComplemento: 'Casa 2',
                     senha: 'senha-segura',
+                    confirmarSenha: 'senha-segura',
                     tipo: 'responsavel',
                     recebeNotificacoes: true
                   }
@@ -213,9 +226,16 @@ export const openApiDocument = {
                   summary: 'Administrador criado por outro admin',
                   value: {
                     nome: 'Admin PillGator',
+                    cpf: '529.982.247-25',
                     email: 'admin@example.com',
                     telefone: '11999999999',
+                    dataNascimento: '1988-02-10',
+                    enderecoRua: 'Rua Central',
+                    enderecoEstado: 'SP',
+                    enderecoCidade: 'Jacarei',
+                    enderecoCep: '12345-678',
                     senha: 'senha-segura',
+                    confirmarSenha: 'senha-segura',
                     tipo: 'administrador',
                     recebeNotificacoes: false
                   }
@@ -533,6 +553,84 @@ export const openApiDocument = {
         }
       }
     },
+    '/iot/dispositivos/{identificador}/comandos-pendentes': {
+      get: {
+        tags: ['Dispositivos'],
+        summary: 'IoT consulta comandos pendentes',
+        description:
+          'Contrato para o dispositivo fisico consultar comandos criados pelo app/backend. Ao consultar, o backend atualiza o ultimo sinal do dispositivo e marca comandos pendentes como enviados.',
+        parameters: [
+          {
+            name: 'identificador',
+            in: 'path',
+            required: true,
+            description:
+              'Identificador unico cadastrado no dispositivo, por exemplo pillgator-01.',
+            schema: { type: 'string' },
+            example: 'pillgator-01'
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Comandos pendentes para o dispositivo',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/ComandoDispositivo' }
+                }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/iot/dispositivos/{identificador}/eventos': {
+      post: {
+        tags: ['Dispositivos'],
+        summary: 'IoT registra evento do dispositivo',
+        description:
+          'Contrato para o dispositivo informar que uma gaveta abriu, fechou, houve retirada de medicamento ou falha. Envie `chaveEvento` unica para evitar duplicidade.',
+        parameters: [
+          {
+            name: 'identificador',
+            in: 'path',
+            required: true,
+            description: 'Identificador unico do dispositivo.',
+            schema: { type: 'string' },
+            example: 'pillgator-01'
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/RegistrarEventoDispositivo' },
+              example: {
+                chaveEvento: 'pillgator-01-0001',
+                tipo: 'compartimento_aberto',
+                compartimentoNumero: 1,
+                ocorridoEm: '2026-05-12T08:00:00.000Z',
+                dados: { distanciaCm: 18 }
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Evento registrado ou retornado se ja existia',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Evento' }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
     '/dispositivos': {
       get: {
         tags: ['Dispositivos'],
@@ -595,6 +693,26 @@ export const openApiDocument = {
           '400': { $ref: '#/components/responses/ErroValidacao' },
           '404': { $ref: '#/components/responses/ErroNaoEncontrado' },
           '409': { $ref: '#/components/responses/ErroConflito' }
+        }
+      }
+    },
+    '/dispositivos/{id}/status': {
+      get: {
+        tags: ['Dispositivos'],
+        summary: 'Consulta status online/offline do dispositivo',
+        description:
+          'Retorna se o dispositivo esta online com base no ultimo sinal recebido nos ultimos 5 minutos.',
+        parameters: [{ $ref: '#/components/parameters/DispositivoId' }],
+        responses: {
+          '200': {
+            description: 'Status do dispositivo',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/StatusDispositivo' }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
         }
       }
     },
@@ -780,6 +898,132 @@ export const openApiDocument = {
         }
       }
     },
+    '/dispositivos/{dispositivoId}/compartimentos/{compartimentoId}/liberar': {
+      post: {
+        tags: ['Dispositivos'],
+        summary: 'Cria comando para liberar gaveta',
+        description:
+          'Usado pelo app quando o responsavel quer abrir uma gaveta. O backend cria um comando pendente para o IoT buscar e muda o status do compartimento para liberado.',
+        parameters: [
+          { $ref: '#/components/parameters/DispositivoIdNaRota' },
+          { $ref: '#/components/parameters/CompartimentoId' }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CriarComandoCompartimento' },
+              example: {
+                motivo: 'Administrar medicamento',
+                agendamentoId: '1c70e1d4-73c0-4d9b-9d3a-2a7df0932222'
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Comando criado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ComandoDispositivo' }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/dispositivos/{dispositivoId}/compartimentos/{compartimentoId}/travar': {
+      post: {
+        tags: ['Dispositivos'],
+        summary: 'Cria comando para travar gaveta',
+        description:
+          'Usado pelo app quando o responsavel quer travar uma gaveta. O backend cria um comando pendente para o IoT buscar e muda o status do compartimento para bloqueado.',
+        parameters: [
+          { $ref: '#/components/parameters/DispositivoIdNaRota' },
+          { $ref: '#/components/parameters/CompartimentoId' }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CriarComandoCompartimento' },
+              example: {
+                motivo: 'Reposicao concluida'
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Comando criado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ComandoDispositivo' }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/base-medicamentos': {
+      get: {
+        tags: ['Base de Medicamentos'],
+        summary: 'Consulta medicamentos da base CSV',
+        description:
+          'Busca medicamentos importados do CSV da Anvisa usado no projeto. Esta base e somente consulta: responsavel nao altera nem remove registros daqui.',
+        parameters: [
+          {
+            name: 'busca',
+            in: 'query',
+            required: false,
+            description:
+              'Texto para pesquisar por nome do produto, principio ativo, categoria ou forma fisica.',
+            schema: { type: 'string' },
+            example: 'dipirona'
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Lista de medicamentos encontrados',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/BaseMedicamento' }
+                }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' },
+          '401': { $ref: '#/components/responses/ErroNaoAutorizado' },
+          '403': { $ref: '#/components/responses/ErroPermissao' }
+        }
+      }
+    },
+    '/base-medicamentos/{id}': {
+      get: {
+        tags: ['Base de Medicamentos'],
+        summary: 'Busca medicamento da base pelo id',
+        description:
+          'Retorna os detalhes de um medicamento da base CSV. Use este id futuramente para criar um medicamento no tratamento do paciente.',
+        parameters: [{ $ref: '#/components/parameters/BaseMedicamentoId' }],
+        responses: {
+          '200': {
+            description: 'Medicamento da base encontrado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/BaseMedicamento' }
+              }
+            }
+          },
+          '401': { $ref: '#/components/responses/ErroNaoAutorizado' },
+          '403': { $ref: '#/components/responses/ErroPermissao' },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
     '/notificacoes': {
       get: {
         tags: ['Notificacoes'],
@@ -832,12 +1076,82 @@ export const openApiDocument = {
         }
       }
     },
+    '/notificacoes/tokens-push': {
+      post: {
+        tags: ['Notificacoes'],
+        summary: 'Registra token push do app',
+        description:
+          'Use esta rota quando o app Expo obter o token de notificacao do celular. O responsavel logado fica vinculado ao token e passa a receber avisos push. Em testes sem autenticacao, envie `responsavelId` no corpo.',
+        requestBody: {
+          required: true,
+          description:
+            'Envie o token retornado pelo Expo no app mobile. O formato esperado e parecido com `ExpoPushToken[...]`.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/RegistrarTokenPush' },
+              example: {
+                token: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]',
+                plataforma: 'android',
+                dispositivoNome: 'Celular da Maria'
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Token registrado ou atualizado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TokenPush' }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' }
+        }
+      }
+    },
+    '/notificacoes/processar-proximas': {
+      post: {
+        tags: ['Notificacoes'],
+        summary: 'Processa notificacoes proximas do horario',
+        description:
+          'Rotina para ser chamada periodicamente pelo backend, por cron/job ou manualmente no Swagger. Ela cria notificacoes push antes do horario e exatamente na hora do medicamento, evitando duplicidade pelo horario previsto.',
+        requestBody: {
+          required: false,
+          description:
+            '`referenciaEm` e opcional. `antecedenciaMinutos` define quantos minutos antes avisar. `janelaMinutos` define por quanto tempo a rotina considera que ainda esta na hora de enviar o aviso do horario.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ProcessarNotificacoes' },
+              example: {
+                referenciaEm: '2026-05-11T07:50:00.000Z',
+                antecedenciaMinutos: 15,
+                janelaMinutos: 5
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Resultado do processamento',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ResultadoProcessamentoNotificacoes'
+                }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' }
+        }
+      }
+    },
     '/notificacoes/verificar-atrasos': {
       post: {
         tags: ['Notificacoes'],
         summary: 'Verifica medicamentos em atraso',
         description:
-          'Analisa os agendamentos ativos, usa a tolerancia configurada em cada agendamento e registra atraso quando nao existe evento de retirada dentro do periodo esperado. Para cada atraso, cria evento `atraso` e notificacoes internas para responsaveis ativos do paciente.',
+          'Analisa os agendamentos ativos, usa a tolerancia configurada em cada agendamento e registra atraso quando nao existe evento de retirada dentro do periodo esperado. Para cada atraso, cria evento `atraso` e notificacoes push para responsaveis ativos do paciente.',
         requestBody: {
           required: false,
           description:
@@ -869,9 +1183,20 @@ export const openApiDocument = {
     '/medicamentos': {
       get: {
         tags: ['Medicamentos'],
-        summary: 'Lista medicamentos ativos',
+        summary: 'Lista medicamentos ativos dos pacientes',
         description:
-          'Retorna todos os medicamentos ativos cadastrados. Medicamentos removidos por DELETE ficam inativos e nao aparecem nesta listagem.',
+          'Retorna medicamentos cadastrados para os pacientes. Responsavel ve apenas medicamentos dos pacientes vinculados a ele. Use `pacienteId` para filtrar um paciente especifico.',
+        parameters: [
+          {
+            name: 'pacienteId',
+            in: 'query',
+            required: false,
+            description:
+              'UUID do paciente. Quando enviado, lista apenas os medicamentos desse paciente.',
+            schema: { type: 'string', format: 'uuid' },
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
+          }
+        ],
         responses: {
           '200': {
             description: 'Lista de medicamentos',
@@ -884,8 +1209,12 @@ export const openApiDocument = {
                 example: [
                   {
                     id: '7b8d7b2a-0d8d-4f87-8a3f-9e5a3f2c1111',
+                    pacienteId: '3fd35f96-0e71-4b08-9101-123456789abc',
+                    baseMedicamentoId: '6a02ecf1-0a2d-447c-9956-2c8fe5104444',
                     nome: 'Losartana',
                     dosagem: '50mg',
+                    quantidadeAdministrada: '1',
+                    unidadeAdministracao: 'comprimido',
                     observacoes: 'Tomar pela manha com agua.',
                     ativo: true,
                     criadoEm: '2026-05-12T12:00:00.000Z',
@@ -899,30 +1228,35 @@ export const openApiDocument = {
       },
       post: {
         tags: ['Medicamentos'],
-        summary: 'Cadastra um medicamento',
+        summary: 'Cadastra medicamento para um paciente',
         description:
-          'Cria um medicamento para depois ser usado em agendamentos. Envie `nome` e `dosagem`. `observacoes` e opcional e serve para instrucoes simples, por exemplo "tomar com agua".',
+          'Cria o medicamento que um paciente vai tomar. Este cadastro nao altera a base de medicamentos: ele apenas copia ou referencia um item da base para o tratamento do paciente. Responsavel so pode cadastrar para pacientes vinculados a ele.',
         requestBody: {
           required: true,
           description:
-            'Dados do medicamento. `nome` e `dosagem` sao obrigatorios. Nao envie `id`, `ativo`, `criadoEm` ou `atualizadoEm`; o backend cria isso automaticamente.',
+            'Envie `pacienteId`, `quantidadeAdministrada` e `unidadeAdministracao`. Se enviar `baseMedicamentoId`, o backend pode preencher `nome` e `dosagem` usando a base CSV; ainda assim voce pode enviar `nome` e `dosagem` manualmente quando precisar ajustar a prescricao.',
           content: {
             'application/json': {
               schema: { $ref: '#/components/schemas/CriarMedicamento' },
               examples: {
-                losartana: {
-                  summary: 'Exemplo simples',
+                usandoBase: {
+                  summary: 'Usando medicamento da base',
                   value: {
-                    nome: 'Losartana',
-                    dosagem: '50mg',
+                    pacienteId: '3fd35f96-0e71-4b08-9101-123456789abc',
+                    baseMedicamentoId: '6a02ecf1-0a2d-447c-9956-2c8fe5104444',
+                    quantidadeAdministrada: '1',
+                    unidadeAdministracao: 'comprimido',
                     observacoes: 'Tomar pela manha com agua.'
                   }
                 },
-                dipirona: {
-                  summary: 'Medicamento sem observacao',
+                manual: {
+                  summary: 'Cadastro manual',
                   value: {
+                    pacienteId: '3fd35f96-0e71-4b08-9101-123456789abc',
                     nome: 'Dipirona',
-                    dosagem: '500mg'
+                    dosagem: '500mg',
+                    quantidadeAdministrada: '20',
+                    unidadeAdministracao: 'gotas'
                   }
                 }
               }
@@ -963,9 +1297,9 @@ export const openApiDocument = {
       },
       put: {
         tags: ['Medicamentos'],
-        summary: 'Atualiza um medicamento',
+        summary: 'Atualiza medicamento do paciente',
         description:
-          'Atualiza os dados de um medicamento. Voce pode enviar todos os campos editaveis ou apenas o campo que quer alterar. Para reativar ou desativar, use `ativo` com true ou false.',
+          'Atualiza o cadastro do medicamento daquele paciente. Isso nao edita a base CSV. Responsavel so consegue alterar medicamento de paciente vinculado.',
         parameters: [{ $ref: '#/components/parameters/MedicamentoId' }],
         requestBody: {
           required: true,
@@ -977,6 +1311,8 @@ export const openApiDocument = {
               example: {
                 nome: 'Losartana Potassica',
                 dosagem: '50mg',
+                quantidadeAdministrada: '1',
+                unidadeAdministracao: 'comprimido',
                 observacoes: 'Tomar sempre no mesmo horario.',
                 ativo: true
               }
@@ -998,9 +1334,9 @@ export const openApiDocument = {
       },
       delete: {
         tags: ['Medicamentos'],
-        summary: 'Remove um medicamento',
+        summary: 'Remove medicamento do paciente',
         description:
-          'Faz remocao logica do medicamento, alterando `ativo` para false. O registro continua no banco, mas nao aparece mais na listagem padrao.',
+          'Remove o medicamento do tratamento do paciente usando remocao logica. A base CSV nao e alterada. Responsavel so remove medicamento de paciente vinculado.',
         parameters: [{ $ref: '#/components/parameters/MedicamentoId' }],
         responses: {
           '204': { description: 'Medicamento removido sem corpo de resposta' },
@@ -1013,7 +1349,7 @@ export const openApiDocument = {
         tags: ['Agendamentos'],
         summary: 'Lista agendamentos ativos',
         description:
-          'Lista os agendamentos cadastrados. Se quiser listar apenas os agendamentos de um medicamento, envie `medicamentoId` como filtro na query.',
+          'Lista os agendamentos cadastrados. Responsavel ve apenas agendamentos de medicamentos dos pacientes vinculados a ele. Use `medicamentoId` ou `pacienteId` para filtrar.',
         parameters: [
           {
             name: 'medicamentoId',
@@ -1023,6 +1359,15 @@ export const openApiDocument = {
               'Opcional. UUID do medicamento para filtrar apenas os agendamentos dele.',
             schema: { type: 'string', format: 'uuid' },
             example: '7b8d7b2a-0d8d-4f87-8a3f-9e5a3f2c1111'
+          },
+          {
+            name: 'pacienteId',
+            in: 'query',
+            required: false,
+            description:
+              'Opcional. UUID do paciente para listar agendamentos dos medicamentos dele.',
+            schema: { type: 'string', format: 'uuid' },
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
           }
         ],
         responses: {
@@ -1044,7 +1389,7 @@ export const openApiDocument = {
         tags: ['Agendamentos'],
         summary: 'Cria um agendamento para um medicamento',
         description:
-          'Cria a regra de horario de um medicamento. Primeiro cadastre um medicamento em `POST /medicamentos`, copie o `id` retornado e use esse valor em `medicamentoId` aqui.',
+          'Cria a regra de horario de um medicamento do paciente. Primeiro cadastre o medicamento em `POST /medicamentos`, copie o `id` retornado e use esse valor em `medicamentoId` aqui. Responsavel so agenda medicamentos de pacientes vinculados a ele.',
         requestBody: {
           required: true,
           description:
@@ -1099,6 +1444,50 @@ export const openApiDocument = {
           },
           '400': { $ref: '#/components/responses/ErroValidacao' },
           '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/agendamentos/proximas-administracoes': {
+      get: {
+        tags: ['Agendamentos'],
+        summary: 'Lista proximas administracoes do dia',
+        description:
+          'Mostra os horarios previstos de administracao para uma data. Use para o app montar a agenda do responsavel ou de um paciente especifico.',
+        parameters: [
+          {
+            name: 'pacienteId',
+            in: 'query',
+            required: false,
+            description:
+              'Opcional. UUID do paciente. Responsavel so consegue consultar pacientes vinculados.',
+            schema: { type: 'string', format: 'uuid' },
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
+          },
+          {
+            name: 'data',
+            in: 'query',
+            required: false,
+            description:
+              'Opcional. Data no formato YYYY-MM-DD. Se nao enviar, o backend usa a data atual.',
+            schema: { type: 'string', format: 'date' },
+            example: '2026-05-12'
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Horarios previstos encontrados',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    $ref: '#/components/schemas/ProximaAdministracao'
+                  }
+                }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' }
         }
       }
     },
@@ -1430,6 +1819,14 @@ export const openApiDocument = {
         schema: { type: 'string', format: 'uuid' },
         example: '7b8d7b2a-0d8d-4f87-8a3f-9e5a3f2c1111'
       },
+      BaseMedicamentoId: {
+        name: 'id',
+        in: 'path',
+        required: true,
+        description: 'UUID do medicamento na base de consulta.',
+        schema: { type: 'string', format: 'uuid' },
+        example: '6a02ecf1-0a2d-447c-9956-2c8fe5104444'
+      },
       AgendamentoId: {
         name: 'id',
         in: 'path',
@@ -1592,11 +1989,55 @@ export const openApiDocument = {
               'Email unico do usuario. Sera usado no login quando o usuario tiver senha cadastrada.',
             example: 'maria@example.com'
           },
+          cpf: {
+            type: 'string',
+            nullable: true,
+            description:
+              'CPF do usuario com 11 digitos. Pode aparecer com ou sem pontuacao na entrada.',
+            example: '93541134780'
+          },
           telefone: {
             type: 'string',
             nullable: true,
             description: 'Telefone para contato.',
             example: '11999999999'
+          },
+          dataNascimento: {
+            type: 'string',
+            nullable: true,
+            format: 'date',
+            description: 'Data de nascimento no formato YYYY-MM-DD.',
+            example: '1990-05-20'
+          },
+          enderecoRua: {
+            type: 'string',
+            nullable: true,
+            description: 'Rua, avenida ou logradouro.',
+            example: 'Rua das Flores'
+          },
+          enderecoEstado: {
+            type: 'string',
+            nullable: true,
+            description: 'UF com 2 letras.',
+            example: 'SP'
+          },
+          enderecoCidade: {
+            type: 'string',
+            nullable: true,
+            description: 'Cidade do endereco.',
+            example: 'Jacarei'
+          },
+          enderecoCep: {
+            type: 'string',
+            nullable: true,
+            description: 'CEP com 8 digitos.',
+            example: '12345678'
+          },
+          enderecoComplemento: {
+            type: 'string',
+            nullable: true,
+            description: 'Complemento do endereco.',
+            example: 'Casa 2'
           },
           tipo: {
             type: 'string',
@@ -1616,7 +2057,20 @@ export const openApiDocument = {
       },
       CriarUsuario: {
         type: 'object',
-        required: ['nome', 'email', 'tipo'],
+        required: [
+          'nome',
+          'cpf',
+          'telefone',
+          'email',
+          'dataNascimento',
+          'enderecoRua',
+          'enderecoEstado',
+          'enderecoCidade',
+          'enderecoCep',
+          'senha',
+          'confirmarSenha',
+          'tipo'
+        ],
         properties: {
           nome: {
             type: 'string',
@@ -1631,19 +2085,68 @@ export const openApiDocument = {
             description: 'Obrigatorio. Email unico.',
             example: 'maria@example.com'
           },
+          cpf: {
+            type: 'string',
+            description:
+              'Obrigatorio. CPF do usuario. Pode enviar com ou sem pontuacao; o backend salva apenas os 11 digitos.',
+            example: '935.411.347-80'
+          },
           telefone: {
             type: 'string',
-            nullable: true,
             maxLength: 30,
-            description: 'Opcional. Telefone para contato.',
+            description: 'Obrigatorio. Telefone para contato.',
             example: '11999999999'
+          },
+          dataNascimento: {
+            type: 'string',
+            format: 'date',
+            description: 'Obrigatorio. Formato YYYY-MM-DD.',
+            example: '1990-05-20'
+          },
+          enderecoRua: {
+            type: 'string',
+            maxLength: 160,
+            description: 'Obrigatorio. Rua, avenida ou logradouro.',
+            example: 'Rua das Flores'
+          },
+          enderecoEstado: {
+            type: 'string',
+            maxLength: 2,
+            description: 'Obrigatorio. UF com 2 letras.',
+            example: 'SP'
+          },
+          enderecoCidade: {
+            type: 'string',
+            maxLength: 120,
+            description: 'Obrigatorio. Cidade do endereco.',
+            example: 'Jacarei'
+          },
+          enderecoCep: {
+            type: 'string',
+            description:
+              'Obrigatorio. CEP. Pode enviar com ou sem hifen; o backend salva apenas os 8 digitos.',
+            example: '12345-678'
+          },
+          enderecoComplemento: {
+            type: 'string',
+            nullable: true,
+            maxLength: 120,
+            description: 'Opcional. Complemento do endereco.',
+            example: 'Casa 2'
           },
           senha: {
             type: 'string',
             format: 'password',
             minLength: 8,
             description:
-              'Opcional para cadastrar. Necessaria para o usuario conseguir fazer login. O backend salva apenas o hash, nunca a senha em texto.'
+              'Obrigatorio. Senha para login. O backend salva apenas o hash, nunca a senha em texto.'
+          },
+          confirmarSenha: {
+            type: 'string',
+            format: 'password',
+            minLength: 8,
+            description:
+              'Obrigatorio. Deve ser igual ao campo senha.'
           },
           tipo: {
             type: 'string',
@@ -1673,11 +2176,45 @@ export const openApiDocument = {
             maxLength: 160,
             description: 'Opcional. Novo email unico.'
           },
+          cpf: {
+            type: 'string',
+            description: 'Opcional. Novo CPF unico.'
+          },
           telefone: {
             type: 'string',
             nullable: true,
             maxLength: 30,
             description: 'Opcional. Novo telefone.'
+          },
+          dataNascimento: {
+            type: 'string',
+            format: 'date',
+            description: 'Opcional. Nova data de nascimento.'
+          },
+          enderecoRua: {
+            type: 'string',
+            maxLength: 160,
+            description: 'Opcional. Nova rua.'
+          },
+          enderecoEstado: {
+            type: 'string',
+            maxLength: 2,
+            description: 'Opcional. Nova UF.'
+          },
+          enderecoCidade: {
+            type: 'string',
+            maxLength: 120,
+            description: 'Opcional. Nova cidade.'
+          },
+          enderecoCep: {
+            type: 'string',
+            description: 'Opcional. Novo CEP.'
+          },
+          enderecoComplemento: {
+            type: 'string',
+            nullable: true,
+            maxLength: 120,
+            description: 'Opcional. Novo complemento.'
           },
           senha: {
             type: 'string',
@@ -1685,6 +2222,13 @@ export const openApiDocument = {
             minLength: 8,
             description:
               'Opcional. Nova senha. O backend gera um novo hash.'
+          },
+          confirmarSenha: {
+            type: 'string',
+            format: 'password',
+            minLength: 8,
+            description:
+              'Obrigatorio quando enviar nova senha. Deve ser igual ao campo senha.'
           },
           tipo: {
             type: 'string',
@@ -1895,6 +2439,26 @@ export const openApiDocument = {
           atualizadoEm: { type: 'string', format: 'date-time' }
         }
       },
+      StatusDispositivo: {
+        type: 'object',
+        properties: {
+          dispositivoId: { type: 'string', format: 'uuid' },
+          identificador: {
+            type: 'string',
+            example: 'pillgator-01'
+          },
+          online: {
+            type: 'boolean',
+            description:
+              'true quando o ultimo sinal do dispositivo aconteceu nos ultimos 5 minutos.'
+          },
+          ultimoSinalEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          }
+        }
+      },
       CriarDispositivo: {
         type: 'object',
         required: ['pacienteId', 'nome', 'identificador'],
@@ -2077,6 +2641,141 @@ export const openApiDocument = {
           }
         }
       },
+      CriarComandoCompartimento: {
+        type: 'object',
+        properties: {
+          motivo: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Opcional. Motivo do comando, por exemplo Administrar medicamento ou Reposicao.'
+          },
+          agendamentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description:
+              'Opcional. Agendamento relacionado ao uso da gaveta.'
+          }
+        }
+      },
+      ComandoDispositivo: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          dispositivoId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Dispositivo que deve executar o comando.'
+          },
+          compartimentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description: 'Gaveta relacionada ao comando.'
+          },
+          tipo: {
+            type: 'string',
+            enum: ['liberar_gaveta', 'travar_gaveta'],
+            description: 'Acao que o IoT deve executar.'
+          },
+          status: {
+            type: 'string',
+            enum: ['pendente', 'enviado', 'confirmado', 'cancelado'],
+            description: 'Estado do comando.'
+          },
+          enviadoEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          },
+          confirmadoEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          },
+          expiraEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          },
+          dados: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+            description:
+              'Dados extras para o IoT, como numeroCompartimento e medicamentoId.'
+          },
+          criadoEm: { type: 'string', format: 'date-time' },
+          atualizadoEm: { type: 'string', format: 'date-time' }
+        }
+      },
+      RegistrarEventoDispositivo: {
+        type: 'object',
+        required: ['chaveEvento', 'tipo'],
+        properties: {
+          chaveEvento: {
+            type: 'string',
+            description:
+              'Obrigatorio. Chave unica gerada pelo dispositivo para evitar eventos duplicados.',
+            example: 'pillgator-01-0001'
+          },
+          tipo: {
+            type: 'string',
+            enum: [
+              'compartimento_aberto',
+              'compartimento_fechado',
+              'medicamento_retirado',
+              'falha'
+            ],
+            description: 'Tipo do evento enviado pelo IoT.'
+          },
+          compartimentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description:
+              'Opcional. UUID da gaveta. Pode usar compartimentoNumero no lugar.'
+          },
+          compartimentoNumero: {
+            type: 'integer',
+            nullable: true,
+            description:
+              'Opcional. Numero fisico da gaveta dentro do dispositivo.'
+          },
+          medicamentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description:
+              'Opcional. Se nao enviar, o backend usa o medicamento associado a gaveta.'
+          },
+          agendamentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description: 'Opcional. Agendamento relacionado ao evento.'
+          },
+          ocorridoEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time',
+            description:
+              'Opcional. Data/hora do evento. Se nao enviar, o backend usa agora.'
+          },
+          descricao: {
+            type: 'string',
+            nullable: true,
+            description: 'Opcional. Descricao textual do evento.'
+          },
+          dados: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+            description: 'Opcional. Leituras ou detalhes tecnicos do IoT.'
+          }
+        }
+      },
       Notificacao: {
         type: 'object',
         properties: {
@@ -2115,14 +2814,18 @@ export const openApiDocument = {
           },
           tipo: {
             type: 'string',
-            enum: ['atraso_medicamento'],
+            enum: [
+              'antes_horario_medicamento',
+              'horario_medicamento',
+              'atraso_medicamento'
+            ],
             description: 'Tipo da notificacao.'
           },
           canal: {
             type: 'string',
             enum: ['interno', 'push'],
             description:
-              'Canal preparado para envio. Nesta fase usamos interno; push fica para integracao mobile.'
+              'Canal usado no envio. Para Expo Push Notification, o valor sera push.'
           },
           status: {
             type: 'string',
@@ -2172,6 +2875,100 @@ export const openApiDocument = {
           }
         }
       },
+      TokenPush: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          responsavelId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Usuario responsavel dono do token.'
+          },
+          token: {
+            type: 'string',
+            description: 'Token Expo Push salvo pelo backend.',
+            example: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]'
+          },
+          plataforma: {
+            type: 'string',
+            enum: ['android', 'ios', 'web', 'desconhecida'],
+            description: 'Plataforma informada pelo app.'
+          },
+          dispositivoNome: {
+            type: 'string',
+            nullable: true,
+            description: 'Nome amigavel do aparelho.'
+          },
+          ativo: {
+            type: 'boolean',
+            description: 'Indica se o token pode receber notificacoes.'
+          },
+          ultimoRegistroEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time',
+            description: 'Data/hora do ultimo registro desse token.'
+          },
+          criadoEm: { type: 'string', format: 'date-time' },
+          atualizadoEm: { type: 'string', format: 'date-time' }
+        }
+      },
+      RegistrarTokenPush: {
+        type: 'object',
+        required: ['token'],
+        properties: {
+          responsavelId: {
+            type: 'string',
+            format: 'uuid',
+            description:
+              'Use apenas em testes sem autenticacao. No app real, o backend usa o responsavel logado.'
+          },
+          token: {
+            type: 'string',
+            description:
+              'Obrigatorio. Token obtido no app com expo-notifications.',
+            example: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]'
+          },
+          plataforma: {
+            type: 'string',
+            enum: ['android', 'ios', 'web', 'desconhecida'],
+            description: 'Opcional. Plataforma do aparelho.',
+            example: 'android'
+          },
+          dispositivoNome: {
+            type: 'string',
+            nullable: true,
+            maxLength: 120,
+            description: 'Opcional. Nome do aparelho para facilitar suporte.',
+            example: 'Celular da Maria'
+          }
+        }
+      },
+      ProcessarNotificacoes: {
+        type: 'object',
+        properties: {
+          referenciaEm: {
+            type: 'string',
+            format: 'date-time',
+            description:
+              'Opcional. Data/hora usada como referencia. Se nao enviar, usa agora.'
+          },
+          antecedenciaMinutos: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 240,
+            description:
+              'Opcional. Quantos minutos antes do horario o backend deve avisar. Padrao: 15.'
+          },
+          janelaMinutos: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 60,
+            description:
+              'Opcional. Janela para considerar que ainda esta na hora de disparar o aviso do horario. Padrao: 5.'
+          }
+        }
+      },
       ResultadoVerificacaoAtrasos: {
         type: 'object',
         properties: {
@@ -2195,6 +2992,29 @@ export const openApiDocument = {
           }
         }
       },
+      ResultadoProcessamentoNotificacoes: {
+        type: 'object',
+        properties: {
+          referenciaEm: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Data/hora usada no processamento.'
+          },
+          notificacoesCriadas: {
+            type: 'integer',
+            description: 'Quantidade de notificacoes criadas.'
+          },
+          notificacoesEnviadas: {
+            type: 'integer',
+            description: 'Quantidade enviada com sucesso para Expo Push.'
+          },
+          notificacoesComErro: {
+            type: 'integer',
+            description:
+              'Quantidade que falhou, por exemplo por falta de token push ativo.'
+          }
+        }
+      },
       Medicamento: {
         type: 'object',
         properties: {
@@ -2203,15 +3023,44 @@ export const openApiDocument = {
             format: 'uuid',
             description: 'Identificador unico criado pelo backend.'
           },
+          pacienteId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Paciente que usa este medicamento. Em novos cadastros deve sempre existir.'
+          },
+          baseMedicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Medicamento da base CSV usado como referencia. Pode ser null em cadastro manual.'
+          },
           nome: {
             type: 'string',
-            description: 'Nome do medicamento.',
+            description:
+              'Nome do medicamento no tratamento do paciente. Pode vir da base ou ser informado manualmente.',
             example: 'Losartana'
           },
           dosagem: {
             type: 'string',
             description: 'Dosagem prescrita ou cadastrada.',
             example: '50mg'
+          },
+          quantidadeAdministrada: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Quantidade que deve ser administrada em cada horario. Exemplo: 1, 2, 20.',
+            example: '1'
+          },
+          unidadeAdministracao: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Unidade da quantidade administrada. Exemplo: comprimido, gotas, ml.',
+            example: 'comprimido'
           },
           observacoes: {
             type: 'string',
@@ -2235,21 +3084,120 @@ export const openApiDocument = {
           }
         }
       },
+      BaseMedicamento: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Identificador do medicamento na base de consulta.'
+          },
+          nomeProduto: {
+            type: 'string',
+            description: 'Nome comercial/produto no CSV.',
+            example: 'AAS'
+          },
+          categoriaProduto: {
+            type: 'string',
+            nullable: true,
+            description: 'Categoria do produto.',
+            example: 'ANALGESICOS NAO NARCOTICOS'
+          },
+          principioAtivo: {
+            type: 'string',
+            nullable: true,
+            description: 'Principio ativo.',
+            example: 'ACIDO ACETILSALICILICO'
+          },
+          concentracao: {
+            type: 'string',
+            nullable: true,
+            description: 'Concentracao informada na base.',
+            example: '100,000'
+          },
+          destinacao: {
+            type: 'string',
+            nullable: true,
+            description: 'Destinacao do medicamento.'
+          },
+          formaFisica: {
+            type: 'string',
+            nullable: true,
+            description: 'Forma fisica/apresentacao.',
+            example: 'COMPRIMIDO SIMPLES'
+          },
+          restricaoPrescricao: {
+            type: 'string',
+            nullable: true,
+            description: 'Restricao de prescricao.',
+            example: 'VENDA SOB PRESCRICAO MEDICA'
+          },
+          restritoHospitalar: {
+            type: 'boolean',
+            description: 'Indica se e restrito a uso hospitalar.'
+          },
+          restricaoUso: {
+            type: 'string',
+            nullable: true,
+            description: 'Restricao de uso.',
+            example: 'Adulto'
+          },
+          fonte: {
+            type: 'string',
+            description: 'Nome da fonte importada.',
+            example: 'TA_RESTRICAO_MEDICAMENTO'
+          }
+        }
+      },
       CriarMedicamento: {
         type: 'object',
-        required: ['nome', 'dosagem'],
+        required: [
+          'pacienteId',
+          'quantidadeAdministrada',
+          'unidadeAdministracao'
+        ],
         properties: {
+          pacienteId: {
+            type: 'string',
+            format: 'uuid',
+            description:
+              'Obrigatorio. UUID do paciente que vai tomar este medicamento.',
+            example: '3fd35f96-0e71-4b08-9101-123456789abc'
+          },
+          baseMedicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Opcional. UUID retornado em GET /base-medicamentos. Use quando o remedio foi encontrado na base CSV.'
+          },
           nome: {
             type: 'string',
             maxLength: 120,
-            description: 'Obrigatorio. Nome do medicamento.',
+            description:
+              'Obrigatorio apenas quando nao usar baseMedicamentoId ou quando quiser sobrescrever o nome da base.',
             example: 'Losartana'
           },
           dosagem: {
             type: 'string',
             maxLength: 60,
-            description: 'Obrigatorio. Dosagem do medicamento.',
+            description:
+              'Obrigatorio apenas quando a base nao informar concentracao ou quando quiser sobrescrever a dosagem.',
             example: '50mg'
+          },
+          quantidadeAdministrada: {
+            type: 'string',
+            maxLength: 80,
+            description:
+              'Obrigatorio. Quantidade que o paciente deve receber em cada administracao.',
+            example: '1'
+          },
+          unidadeAdministracao: {
+            type: 'string',
+            maxLength: 40,
+            description:
+              'Obrigatorio. Unidade da quantidade: comprimido, gotas, ml, capsula etc.',
+            example: 'comprimido'
           },
           observacoes: {
             type: 'string',
@@ -2263,6 +3211,13 @@ export const openApiDocument = {
       AtualizarMedicamento: {
         type: 'object',
         properties: {
+          baseMedicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            nullable: true,
+            description:
+              'Opcional. Envie um UUID da base para trocar a referencia, ou null para remover a referencia.'
+          },
           nome: {
             type: 'string',
             maxLength: 120,
@@ -2274,6 +3229,18 @@ export const openApiDocument = {
             maxLength: 60,
             description: 'Opcional. Nova dosagem do medicamento.',
             example: '50mg'
+          },
+          quantidadeAdministrada: {
+            type: 'string',
+            maxLength: 80,
+            description: 'Opcional. Nova quantidade por administracao.',
+            example: '2'
+          },
+          unidadeAdministracao: {
+            type: 'string',
+            maxLength: 40,
+            description: 'Opcional. Nova unidade da quantidade administrada.',
+            example: 'comprimidos'
           },
           observacoes: {
             type: 'string',
@@ -2356,6 +3323,48 @@ export const openApiDocument = {
           ativo: { type: 'boolean' },
           criadoEm: { type: 'string', format: 'date-time' },
           atualizadoEm: { type: 'string', format: 'date-time' }
+        }
+      },
+      ProximaAdministracao: {
+        type: 'object',
+        properties: {
+          agendamentoId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Agendamento que gerou este horario.'
+          },
+          medicamentoId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Medicamento do paciente que deve ser administrado.'
+          },
+          pacienteId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Paciente que recebera o medicamento.'
+          },
+          medicamentoNome: {
+            type: 'string',
+            description: 'Nome do medicamento para exibir no app.',
+            example: 'Losartana'
+          },
+          horarioPrevisto: {
+            type: 'string',
+            description:
+              'Data e horario previstos no formato YYYY-MM-DDTHH:mm:ss.',
+            example: '2026-05-12T08:00:00'
+          },
+          tipo: {
+            type: 'string',
+            enum: ['horarios_fixos', 'intervalo'],
+            description: 'Tipo de regra que gerou o horario.'
+          },
+          cuidados: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Cuidados cadastrados no agendamento, quando existirem.'
+          }
         }
       },
       CriarAgendamento: {
