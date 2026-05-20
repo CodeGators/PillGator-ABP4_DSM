@@ -1,8 +1,10 @@
 import request from 'supertest';
 
 import { criarApp } from '../src/app.js';
+import type { ComandoDispositivo } from '../src/entidades/ComandoDispositivo.js';
 import type { Compartimento } from '../src/entidades/Compartimento.js';
 import type { Dispositivo } from '../src/entidades/Dispositivo.js';
+import type { EventoMedicamento } from '../src/entidades/EventoMedicamento.js';
 import { ErroHttp } from '../src/erros/ErroHttp.js';
 import type { DispositivosServicoContrato } from '../src/modulos/dispositivos/dispositivosTipos.js';
 
@@ -45,11 +47,54 @@ function criarCompartimentoTeste(
   };
 }
 
+function criarComandoTeste(
+  sobrescritas: Partial<ComandoDispositivo> = {}
+): ComandoDispositivo {
+  return {
+    id: 'comando-1',
+    dispositivoId: 'dispositivo-1',
+    dispositivo: null as never,
+    compartimentoId: 'compartimento-1',
+    compartimento: null,
+    tipo: 'liberar_gaveta',
+    status: 'pendente',
+    enviadoEm: null,
+    confirmadoEm: null,
+    expiraEm: null,
+    dados: null,
+    criadoEm: dataFixa,
+    atualizadoEm: dataFixa,
+    ...sobrescritas
+  };
+}
+
+function criarEventoTeste(
+  sobrescritas: Partial<EventoMedicamento> = {}
+): EventoMedicamento {
+  return {
+    id: 'evento-1',
+    medicamentoId: 'medicamento-1',
+    medicamento: null,
+    agendamentoId: null,
+    agendamento: null,
+    dispositivoId: 'pillgator-01',
+    tipo: 'compartimento_aberto',
+    origem: 'iot',
+    ocorridoEm: dataFixa,
+    descricao: null,
+    dados: null,
+    criadoEm: dataFixa,
+    ...sobrescritas
+  };
+}
+
 function criarServicoMock(
   sobrescritas: Partial<DispositivosServicoContrato> = {}
 ) {
   const dispositivo = criarDispositivoTeste();
   const compartimento = criarCompartimentoTeste();
+  const comando = criarComandoTeste();
+  const evento = criarEventoTeste();
   const chamadas = {
     listar: [] as unknown[],
     buscarPorId: [] as string[],
@@ -59,7 +104,12 @@ function criarServicoMock(
     listarCompartimentos: [] as string[],
     criarCompartimento: [] as Array<[string, unknown]>,
     atualizarCompartimento: [] as Array<[string, string, unknown]>,
-    removerCompartimento: [] as Array<[string, string]>
+    removerCompartimento: [] as Array<[string, string]>,
+    liberarCompartimento: [] as Array<[string, string, unknown]>,
+    travarCompartimento: [] as Array<[string, string, unknown]>,
+    listarComandosPendentes: [] as string[],
+    registrarEventoDispositivo: [] as Array<[string, unknown]>,
+    obterStatus: [] as string[]
   };
 
   const servico: DispositivosServicoContrato = {
@@ -147,6 +197,64 @@ function criarServicoMock(
       if (sobrescritas.removerCompartimento) {
         return sobrescritas.removerCompartimento(dispositivoId, compartimentoId);
       }
+    },
+    liberarCompartimento: async (dispositivoId, compartimentoId, entrada) => {
+      chamadas.liberarCompartimento.push([dispositivoId, compartimentoId, entrada]);
+
+      if (sobrescritas.liberarCompartimento) {
+        return sobrescritas.liberarCompartimento(
+          dispositivoId,
+          compartimentoId,
+          entrada
+        );
+      }
+
+      return comando;
+    },
+    travarCompartimento: async (dispositivoId, compartimentoId, entrada) => {
+      chamadas.travarCompartimento.push([dispositivoId, compartimentoId, entrada]);
+
+      if (sobrescritas.travarCompartimento) {
+        return sobrescritas.travarCompartimento(
+          dispositivoId,
+          compartimentoId,
+          entrada
+        );
+      }
+
+      return criarComandoTeste({ tipo: 'travar_gaveta' });
+    },
+    listarComandosPendentes: async (identificador) => {
+      chamadas.listarComandosPendentes.push(identificador);
+
+      if (sobrescritas.listarComandosPendentes) {
+        return sobrescritas.listarComandosPendentes(identificador);
+      }
+
+      return [comando];
+    },
+    registrarEventoDispositivo: async (identificador, entrada) => {
+      chamadas.registrarEventoDispositivo.push([identificador, entrada]);
+
+      if (sobrescritas.registrarEventoDispositivo) {
+        return sobrescritas.registrarEventoDispositivo(identificador, entrada);
+      }
+
+      return evento;
+    },
+    obterStatus: async (id) => {
+      chamadas.obterStatus.push(id);
+
+      if (sobrescritas.obterStatus) {
+        return sobrescritas.obterStatus(id);
+      }
+
+      return {
+        dispositivoId: id,
+        identificador: 'pillgator-01',
+        online: true,
+        ultimoSinalEm: dataFixa
+      };
     }
   };
 
@@ -243,6 +351,77 @@ describe('Rotas de dispositivos', () => {
     expect(chamadas.atualizarCompartimento).toEqual([
       ['dispositivo-1', 'compartimento-1', entrada]
     ]);
+  });
+
+  it('deve liberar compartimento', async () => {
+    const { servico, chamadas } = criarServicoMock();
+    const app = criarApp({
+      dispositivosServico: servico,
+      autenticacaoAtiva: false
+    });
+    const entrada = { motivo: 'Administrar medicamento' };
+
+    const response = await request(app)
+      .post('/dispositivos/dispositivo-1/compartimentos/compartimento-1/liberar')
+      .send(entrada);
+
+    expect(response.status).toBe(201);
+    expect(chamadas.liberarCompartimento).toEqual([
+      ['dispositivo-1', 'compartimento-1', entrada]
+    ]);
+  });
+
+  it('deve listar comandos pendentes para IoT', async () => {
+    const { servico, chamadas } = criarServicoMock();
+    const app = criarApp({
+      dispositivosServico: servico,
+      autenticacaoAtiva: false
+    });
+
+    const response = await request(app).get(
+      '/iot/dispositivos/pillgator-01/comandos-pendentes'
+    );
+
+    expect(response.status).toBe(200);
+    expect(chamadas.listarComandosPendentes).toEqual(['pillgator-01']);
+    expect(response.body[0]).toMatchObject({ tipo: 'liberar_gaveta' });
+  });
+
+  it('deve registrar evento enviado pelo IoT', async () => {
+    const { servico, chamadas } = criarServicoMock();
+    const app = criarApp({
+      dispositivosServico: servico,
+      autenticacaoAtiva: false
+    });
+    const entrada = {
+      chaveEvento: 'evt-001',
+      tipo: 'compartimento_aberto',
+      compartimentoNumero: 1
+    };
+
+    const response = await request(app)
+      .post('/iot/dispositivos/pillgator-01/eventos')
+      .send(entrada);
+
+    expect(response.status).toBe(201);
+    expect(chamadas.registrarEventoDispositivo).toEqual([
+      ['pillgator-01', entrada]
+    ]);
+    expect(response.body).toMatchObject({ origem: 'iot' });
+  });
+
+  it('deve obter status do dispositivo', async () => {
+    const { servico, chamadas } = criarServicoMock();
+    const app = criarApp({
+      dispositivosServico: servico,
+      autenticacaoAtiva: false
+    });
+
+    const response = await request(app).get('/dispositivos/dispositivo-1/status');
+
+    expect(response.status).toBe(200);
+    expect(chamadas.obterStatus).toEqual(['dispositivo-1']);
+    expect(response.body).toMatchObject({ online: true });
   });
 
   it('deve remover compartimento', async () => {

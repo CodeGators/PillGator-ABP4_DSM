@@ -553,6 +553,84 @@ export const openApiDocument = {
         }
       }
     },
+    '/iot/dispositivos/{identificador}/comandos-pendentes': {
+      get: {
+        tags: ['Dispositivos'],
+        summary: 'IoT consulta comandos pendentes',
+        description:
+          'Contrato para o dispositivo fisico consultar comandos criados pelo app/backend. Ao consultar, o backend atualiza o ultimo sinal do dispositivo e marca comandos pendentes como enviados.',
+        parameters: [
+          {
+            name: 'identificador',
+            in: 'path',
+            required: true,
+            description:
+              'Identificador unico cadastrado no dispositivo, por exemplo pillgator-01.',
+            schema: { type: 'string' },
+            example: 'pillgator-01'
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Comandos pendentes para o dispositivo',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/ComandoDispositivo' }
+                }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/iot/dispositivos/{identificador}/eventos': {
+      post: {
+        tags: ['Dispositivos'],
+        summary: 'IoT registra evento do dispositivo',
+        description:
+          'Contrato para o dispositivo informar que uma gaveta abriu, fechou, houve retirada de medicamento ou falha. Envie `chaveEvento` unica para evitar duplicidade.',
+        parameters: [
+          {
+            name: 'identificador',
+            in: 'path',
+            required: true,
+            description: 'Identificador unico do dispositivo.',
+            schema: { type: 'string' },
+            example: 'pillgator-01'
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/RegistrarEventoDispositivo' },
+              example: {
+                chaveEvento: 'pillgator-01-0001',
+                tipo: 'compartimento_aberto',
+                compartimentoNumero: 1,
+                ocorridoEm: '2026-05-12T08:00:00.000Z',
+                dados: { distanciaCm: 18 }
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Evento registrado ou retornado se ja existia',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Evento' }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
     '/dispositivos': {
       get: {
         tags: ['Dispositivos'],
@@ -615,6 +693,26 @@ export const openApiDocument = {
           '400': { $ref: '#/components/responses/ErroValidacao' },
           '404': { $ref: '#/components/responses/ErroNaoEncontrado' },
           '409': { $ref: '#/components/responses/ErroConflito' }
+        }
+      }
+    },
+    '/dispositivos/{id}/status': {
+      get: {
+        tags: ['Dispositivos'],
+        summary: 'Consulta status online/offline do dispositivo',
+        description:
+          'Retorna se o dispositivo esta online com base no ultimo sinal recebido nos ultimos 5 minutos.',
+        parameters: [{ $ref: '#/components/parameters/DispositivoId' }],
+        responses: {
+          '200': {
+            description: 'Status do dispositivo',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/StatusDispositivo' }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
         }
       }
     },
@@ -800,6 +898,75 @@ export const openApiDocument = {
         }
       }
     },
+    '/dispositivos/{dispositivoId}/compartimentos/{compartimentoId}/liberar': {
+      post: {
+        tags: ['Dispositivos'],
+        summary: 'Cria comando para liberar gaveta',
+        description:
+          'Usado pelo app quando o responsavel quer abrir uma gaveta. O backend cria um comando pendente para o IoT buscar e muda o status do compartimento para liberado.',
+        parameters: [
+          { $ref: '#/components/parameters/DispositivoIdNaRota' },
+          { $ref: '#/components/parameters/CompartimentoId' }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CriarComandoCompartimento' },
+              example: {
+                motivo: 'Administrar medicamento',
+                agendamentoId: '1c70e1d4-73c0-4d9b-9d3a-2a7df0932222'
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Comando criado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ComandoDispositivo' }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
+    '/dispositivos/{dispositivoId}/compartimentos/{compartimentoId}/travar': {
+      post: {
+        tags: ['Dispositivos'],
+        summary: 'Cria comando para travar gaveta',
+        description:
+          'Usado pelo app quando o responsavel quer travar uma gaveta. O backend cria um comando pendente para o IoT buscar e muda o status do compartimento para bloqueado.',
+        parameters: [
+          { $ref: '#/components/parameters/DispositivoIdNaRota' },
+          { $ref: '#/components/parameters/CompartimentoId' }
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CriarComandoCompartimento' },
+              example: {
+                motivo: 'Reposicao concluida'
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Comando criado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ComandoDispositivo' }
+              }
+            }
+          },
+          '404': { $ref: '#/components/responses/ErroNaoEncontrado' }
+        }
+      }
+    },
     '/base-medicamentos': {
       get: {
         tags: ['Base de Medicamentos'],
@@ -909,12 +1076,82 @@ export const openApiDocument = {
         }
       }
     },
+    '/notificacoes/tokens-push': {
+      post: {
+        tags: ['Notificacoes'],
+        summary: 'Registra token push do app',
+        description:
+          'Use esta rota quando o app Expo obter o token de notificacao do celular. O responsavel logado fica vinculado ao token e passa a receber avisos push. Em testes sem autenticacao, envie `responsavelId` no corpo.',
+        requestBody: {
+          required: true,
+          description:
+            'Envie o token retornado pelo Expo no app mobile. O formato esperado e parecido com `ExpoPushToken[...]`.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/RegistrarTokenPush' },
+              example: {
+                token: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]',
+                plataforma: 'android',
+                dispositivoNome: 'Celular da Maria'
+              }
+            }
+          }
+        },
+        responses: {
+          '201': {
+            description: 'Token registrado ou atualizado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/TokenPush' }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' }
+        }
+      }
+    },
+    '/notificacoes/processar-proximas': {
+      post: {
+        tags: ['Notificacoes'],
+        summary: 'Processa notificacoes proximas do horario',
+        description:
+          'Rotina para ser chamada periodicamente pelo backend, por cron/job ou manualmente no Swagger. Ela cria notificacoes push antes do horario e exatamente na hora do medicamento, evitando duplicidade pelo horario previsto.',
+        requestBody: {
+          required: false,
+          description:
+            '`referenciaEm` e opcional. `antecedenciaMinutos` define quantos minutos antes avisar. `janelaMinutos` define por quanto tempo a rotina considera que ainda esta na hora de enviar o aviso do horario.',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ProcessarNotificacoes' },
+              example: {
+                referenciaEm: '2026-05-11T07:50:00.000Z',
+                antecedenciaMinutos: 15,
+                janelaMinutos: 5
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Resultado do processamento',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ResultadoProcessamentoNotificacoes'
+                }
+              }
+            }
+          },
+          '400': { $ref: '#/components/responses/ErroValidacao' }
+        }
+      }
+    },
     '/notificacoes/verificar-atrasos': {
       post: {
         tags: ['Notificacoes'],
         summary: 'Verifica medicamentos em atraso',
         description:
-          'Analisa os agendamentos ativos, usa a tolerancia configurada em cada agendamento e registra atraso quando nao existe evento de retirada dentro do periodo esperado. Para cada atraso, cria evento `atraso` e notificacoes internas para responsaveis ativos do paciente.',
+          'Analisa os agendamentos ativos, usa a tolerancia configurada em cada agendamento e registra atraso quando nao existe evento de retirada dentro do periodo esperado. Para cada atraso, cria evento `atraso` e notificacoes push para responsaveis ativos do paciente.',
         requestBody: {
           required: false,
           description:
@@ -2202,6 +2439,26 @@ export const openApiDocument = {
           atualizadoEm: { type: 'string', format: 'date-time' }
         }
       },
+      StatusDispositivo: {
+        type: 'object',
+        properties: {
+          dispositivoId: { type: 'string', format: 'uuid' },
+          identificador: {
+            type: 'string',
+            example: 'pillgator-01'
+          },
+          online: {
+            type: 'boolean',
+            description:
+              'true quando o ultimo sinal do dispositivo aconteceu nos ultimos 5 minutos.'
+          },
+          ultimoSinalEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          }
+        }
+      },
       CriarDispositivo: {
         type: 'object',
         required: ['pacienteId', 'nome', 'identificador'],
@@ -2384,6 +2641,141 @@ export const openApiDocument = {
           }
         }
       },
+      CriarComandoCompartimento: {
+        type: 'object',
+        properties: {
+          motivo: {
+            type: 'string',
+            nullable: true,
+            description:
+              'Opcional. Motivo do comando, por exemplo Administrar medicamento ou Reposicao.'
+          },
+          agendamentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description:
+              'Opcional. Agendamento relacionado ao uso da gaveta.'
+          }
+        }
+      },
+      ComandoDispositivo: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          dispositivoId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Dispositivo que deve executar o comando.'
+          },
+          compartimentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description: 'Gaveta relacionada ao comando.'
+          },
+          tipo: {
+            type: 'string',
+            enum: ['liberar_gaveta', 'travar_gaveta'],
+            description: 'Acao que o IoT deve executar.'
+          },
+          status: {
+            type: 'string',
+            enum: ['pendente', 'enviado', 'confirmado', 'cancelado'],
+            description: 'Estado do comando.'
+          },
+          enviadoEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          },
+          confirmadoEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          },
+          expiraEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time'
+          },
+          dados: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+            description:
+              'Dados extras para o IoT, como numeroCompartimento e medicamentoId.'
+          },
+          criadoEm: { type: 'string', format: 'date-time' },
+          atualizadoEm: { type: 'string', format: 'date-time' }
+        }
+      },
+      RegistrarEventoDispositivo: {
+        type: 'object',
+        required: ['chaveEvento', 'tipo'],
+        properties: {
+          chaveEvento: {
+            type: 'string',
+            description:
+              'Obrigatorio. Chave unica gerada pelo dispositivo para evitar eventos duplicados.',
+            example: 'pillgator-01-0001'
+          },
+          tipo: {
+            type: 'string',
+            enum: [
+              'compartimento_aberto',
+              'compartimento_fechado',
+              'medicamento_retirado',
+              'falha'
+            ],
+            description: 'Tipo do evento enviado pelo IoT.'
+          },
+          compartimentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description:
+              'Opcional. UUID da gaveta. Pode usar compartimentoNumero no lugar.'
+          },
+          compartimentoNumero: {
+            type: 'integer',
+            nullable: true,
+            description:
+              'Opcional. Numero fisico da gaveta dentro do dispositivo.'
+          },
+          medicamentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description:
+              'Opcional. Se nao enviar, o backend usa o medicamento associado a gaveta.'
+          },
+          agendamentoId: {
+            type: 'string',
+            nullable: true,
+            format: 'uuid',
+            description: 'Opcional. Agendamento relacionado ao evento.'
+          },
+          ocorridoEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time',
+            description:
+              'Opcional. Data/hora do evento. Se nao enviar, o backend usa agora.'
+          },
+          descricao: {
+            type: 'string',
+            nullable: true,
+            description: 'Opcional. Descricao textual do evento.'
+          },
+          dados: {
+            type: 'object',
+            nullable: true,
+            additionalProperties: true,
+            description: 'Opcional. Leituras ou detalhes tecnicos do IoT.'
+          }
+        }
+      },
       Notificacao: {
         type: 'object',
         properties: {
@@ -2422,14 +2814,18 @@ export const openApiDocument = {
           },
           tipo: {
             type: 'string',
-            enum: ['atraso_medicamento'],
+            enum: [
+              'antes_horario_medicamento',
+              'horario_medicamento',
+              'atraso_medicamento'
+            ],
             description: 'Tipo da notificacao.'
           },
           canal: {
             type: 'string',
             enum: ['interno', 'push'],
             description:
-              'Canal preparado para envio. Nesta fase usamos interno; push fica para integracao mobile.'
+              'Canal usado no envio. Para Expo Push Notification, o valor sera push.'
           },
           status: {
             type: 'string',
@@ -2479,6 +2875,100 @@ export const openApiDocument = {
           }
         }
       },
+      TokenPush: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          responsavelId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Usuario responsavel dono do token.'
+          },
+          token: {
+            type: 'string',
+            description: 'Token Expo Push salvo pelo backend.',
+            example: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]'
+          },
+          plataforma: {
+            type: 'string',
+            enum: ['android', 'ios', 'web', 'desconhecida'],
+            description: 'Plataforma informada pelo app.'
+          },
+          dispositivoNome: {
+            type: 'string',
+            nullable: true,
+            description: 'Nome amigavel do aparelho.'
+          },
+          ativo: {
+            type: 'boolean',
+            description: 'Indica se o token pode receber notificacoes.'
+          },
+          ultimoRegistroEm: {
+            type: 'string',
+            nullable: true,
+            format: 'date-time',
+            description: 'Data/hora do ultimo registro desse token.'
+          },
+          criadoEm: { type: 'string', format: 'date-time' },
+          atualizadoEm: { type: 'string', format: 'date-time' }
+        }
+      },
+      RegistrarTokenPush: {
+        type: 'object',
+        required: ['token'],
+        properties: {
+          responsavelId: {
+            type: 'string',
+            format: 'uuid',
+            description:
+              'Use apenas em testes sem autenticacao. No app real, o backend usa o responsavel logado.'
+          },
+          token: {
+            type: 'string',
+            description:
+              'Obrigatorio. Token obtido no app com expo-notifications.',
+            example: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]'
+          },
+          plataforma: {
+            type: 'string',
+            enum: ['android', 'ios', 'web', 'desconhecida'],
+            description: 'Opcional. Plataforma do aparelho.',
+            example: 'android'
+          },
+          dispositivoNome: {
+            type: 'string',
+            nullable: true,
+            maxLength: 120,
+            description: 'Opcional. Nome do aparelho para facilitar suporte.',
+            example: 'Celular da Maria'
+          }
+        }
+      },
+      ProcessarNotificacoes: {
+        type: 'object',
+        properties: {
+          referenciaEm: {
+            type: 'string',
+            format: 'date-time',
+            description:
+              'Opcional. Data/hora usada como referencia. Se nao enviar, usa agora.'
+          },
+          antecedenciaMinutos: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 240,
+            description:
+              'Opcional. Quantos minutos antes do horario o backend deve avisar. Padrao: 15.'
+          },
+          janelaMinutos: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 60,
+            description:
+              'Opcional. Janela para considerar que ainda esta na hora de disparar o aviso do horario. Padrao: 5.'
+          }
+        }
+      },
       ResultadoVerificacaoAtrasos: {
         type: 'object',
         properties: {
@@ -2499,6 +2989,29 @@ export const openApiDocument = {
           notificacoesCriadas: {
             type: 'integer',
             description: 'Quantidade de notificacoes criadas para responsaveis.'
+          }
+        }
+      },
+      ResultadoProcessamentoNotificacoes: {
+        type: 'object',
+        properties: {
+          referenciaEm: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Data/hora usada no processamento.'
+          },
+          notificacoesCriadas: {
+            type: 'integer',
+            description: 'Quantidade de notificacoes criadas.'
+          },
+          notificacoesEnviadas: {
+            type: 'integer',
+            description: 'Quantidade enviada com sucesso para Expo Push.'
+          },
+          notificacoesComErro: {
+            type: 'integer',
+            description:
+              'Quantidade que falhou, por exemplo por falta de token push ativo.'
           }
         }
       },

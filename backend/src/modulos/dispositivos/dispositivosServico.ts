@@ -2,22 +2,34 @@ import type { FindOptionsWhere, Repository } from 'typeorm';
 
 import { AppDataSource } from '../../config/data-source.js';
 import {
+  ComandoDispositivo,
+  type TipoComandoDispositivo
+} from '../../entidades/ComandoDispositivo.js';
+import {
   Compartimento,
   type StatusCompartimento
 } from '../../entidades/Compartimento.js';
 import { Dispositivo } from '../../entidades/Dispositivo.js';
+import {
+  EventoMedicamento,
+  type TipoEventoMedicamento
+} from '../../entidades/EventoMedicamento.js';
 import { Medicamento } from '../../entidades/Medicamento.js';
 import { Paciente } from '../../entidades/Paciente.js';
+import { PacienteResponsavel } from '../../entidades/PacienteResponsavel.js';
 import { ErroHttp } from '../../erros/ErroHttp.js';
 import type {
   AtualizarCompartimentoEntrada,
   AtualizarDispositivoEntrada,
   CompartimentoNormalizado,
+  ContextoUsuarioDispositivo,
+  CriarComandoCompartimentoEntrada,
   CriarCompartimentoEntrada,
   CriarDispositivoEntrada,
   DispositivoNormalizado,
   DispositivosServicoContrato,
-  ListarDispositivosFiltros
+  ListarDispositivosFiltros,
+  RegistrarEventoDispositivoEntrada
 } from './dispositivosTipos.js';
 
 const statusCompartimento: StatusCompartimento[] = [
@@ -26,33 +38,58 @@ const statusCompartimento: StatusCompartimento[] = [
   'aberto',
   'erro'
 ];
+const tiposEventoDispositivo: TipoEventoMedicamento[] = [
+  'compartimento_aberto',
+  'compartimento_fechado',
+  'medicamento_retirado',
+  'falha'
+];
 const tamanhoMaximoTexto = 120;
 const tamanhoMaximoObservacoes = 1000;
+const minutosStatusOnline = 5;
 
 export class DispositivosServico implements DispositivosServicoContrato {
   constructor(
     private readonly dispositivosRepositorio: Repository<Dispositivo>,
     private readonly compartimentosRepositorio: Repository<Compartimento>,
     private readonly pacientesRepositorio: Repository<Paciente>,
-    private readonly medicamentosRepositorio: Repository<Medicamento>
+    private readonly medicamentosRepositorio: Repository<Medicamento>,
+    private readonly pacientesResponsaveisRepositorio: Repository<PacienteResponsavel>,
+    private readonly comandosRepositorio: Repository<ComandoDispositivo>,
+    private readonly eventosRepositorio: Repository<EventoMedicamento>
   ) {}
 
   public async listar(
-    filtros: ListarDispositivosFiltros = {}
+    filtros: ListarDispositivosFiltros = {},
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<Dispositivo[]> {
     const where: FindOptionsWhere<Dispositivo> = { ativo: true };
 
     if (filtros.pacienteId) {
+      await this.garantirAcessoPacienteId(filtros.pacienteId, contexto);
       where.pacienteId = filtros.pacienteId;
     }
 
-    return this.dispositivosRepositorio.find({
+    const dispositivos = await this.dispositivosRepositorio.find({
       where,
       order: { nome: 'ASC' }
     });
+
+    if (!contexto || contexto.tipo === 'administrador') {
+      return dispositivos;
+    }
+
+    const pacienteIds = await this.obterPacienteIdsDoResponsavel(contexto.id);
+
+    return dispositivos.filter((dispositivo) =>
+      pacienteIds.includes(dispositivo.pacienteId)
+    );
   }
 
-  public async buscarPorId(id: string): Promise<Dispositivo> {
+  public async buscarPorId(
+    id: string,
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<Dispositivo> {
     const dispositivo = await this.dispositivosRepositorio.findOne({
       where: { id, ativo: true }
     });
@@ -61,14 +98,18 @@ export class DispositivosServico implements DispositivosServicoContrato {
       throw new ErroHttp(404, 'Dispositivo nao encontrado');
     }
 
+    await this.garantirAcessoPacienteId(dispositivo.pacienteId, contexto);
+
     return dispositivo;
   }
 
   public async criar(
-    entrada: CriarDispositivoEntrada
+    entrada: CriarDispositivoEntrada,
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<Dispositivo> {
     const dados = await this.normalizarDispositivo(entrada);
     await this.garantirPacienteAtivo(dados.pacienteId);
+    await this.garantirAcessoPacienteId(dados.pacienteId, contexto);
     await this.garantirIdentificadorDisponivel(dados.identificador);
 
     const dispositivo = this.dispositivosRepositorio.create(dados);
@@ -78,12 +119,14 @@ export class DispositivosServico implements DispositivosServicoContrato {
 
   public async atualizar(
     id: string,
-    entrada: AtualizarDispositivoEntrada
+    entrada: AtualizarDispositivoEntrada,
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<Dispositivo> {
-    const dispositivo = await this.buscarPorId(id);
+    const dispositivo = await this.buscarPorId(id, contexto);
     const dados = await this.normalizarDispositivo(entrada, dispositivo);
 
     await this.garantirPacienteAtivo(dados.pacienteId);
+    await this.garantirAcessoPacienteId(dados.pacienteId, contexto);
 
     if (dados.identificador !== dispositivo.identificador) {
       await this.garantirIdentificadorDisponivel(
@@ -97,17 +140,21 @@ export class DispositivosServico implements DispositivosServicoContrato {
     return this.dispositivosRepositorio.save(dispositivo);
   }
 
-  public async remover(id: string): Promise<void> {
-    const dispositivo = await this.buscarPorId(id);
+  public async remover(
+    id: string,
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<void> {
+    const dispositivo = await this.buscarPorId(id, contexto);
     dispositivo.ativo = false;
 
     await this.dispositivosRepositorio.save(dispositivo);
   }
 
   public async listarCompartimentos(
-    dispositivoId: string
+    dispositivoId: string,
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<Compartimento[]> {
-    await this.buscarPorId(dispositivoId);
+    await this.buscarPorId(dispositivoId, contexto);
 
     return this.compartimentosRepositorio.find({
       where: { dispositivoId, ativo: true },
@@ -117,10 +164,11 @@ export class DispositivosServico implements DispositivosServicoContrato {
 
   public async criarCompartimento(
     dispositivoId: string,
-    entrada: CriarCompartimentoEntrada
+    entrada: CriarCompartimentoEntrada,
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<Compartimento> {
-    await this.buscarPorId(dispositivoId);
-    const dados = await this.normalizarCompartimento(dispositivoId, entrada);
+    const dispositivo = await this.buscarPorId(dispositivoId, contexto);
+    const dados = await this.normalizarCompartimento(dispositivo, entrada);
     await this.garantirNumeroDisponivel(dispositivoId, dados.numero);
 
     const compartimento = this.compartimentosRepositorio.create(dados);
@@ -131,15 +179,16 @@ export class DispositivosServico implements DispositivosServicoContrato {
   public async atualizarCompartimento(
     dispositivoId: string,
     compartimentoId: string,
-    entrada: AtualizarCompartimentoEntrada
+    entrada: AtualizarCompartimentoEntrada,
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<Compartimento> {
-    await this.buscarPorId(dispositivoId);
+    const dispositivo = await this.buscarPorId(dispositivoId, contexto);
     const compartimento = await this.buscarCompartimento(
       dispositivoId,
       compartimentoId
     );
     const dados = await this.normalizarCompartimento(
-      dispositivoId,
+      dispositivo,
       entrada,
       compartimento
     );
@@ -159,9 +208,10 @@ export class DispositivosServico implements DispositivosServicoContrato {
 
   public async removerCompartimento(
     dispositivoId: string,
-    compartimentoId: string
+    compartimentoId: string,
+    contexto?: ContextoUsuarioDispositivo
   ): Promise<void> {
-    await this.buscarPorId(dispositivoId);
+    await this.buscarPorId(dispositivoId, contexto);
     const compartimento = await this.buscarCompartimento(
       dispositivoId,
       compartimentoId
@@ -169,6 +219,180 @@ export class DispositivosServico implements DispositivosServicoContrato {
     compartimento.ativo = false;
 
     await this.compartimentosRepositorio.save(compartimento);
+  }
+
+  public async liberarCompartimento(
+    dispositivoId: string,
+    compartimentoId: string,
+    entrada: CriarComandoCompartimentoEntrada = {},
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<ComandoDispositivo> {
+    return this.criarComandoCompartimento(
+      dispositivoId,
+      compartimentoId,
+      'liberar_gaveta',
+      entrada,
+      contexto
+    );
+  }
+
+  public async travarCompartimento(
+    dispositivoId: string,
+    compartimentoId: string,
+    entrada: CriarComandoCompartimentoEntrada = {},
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<ComandoDispositivo> {
+    return this.criarComandoCompartimento(
+      dispositivoId,
+      compartimentoId,
+      'travar_gaveta',
+      entrada,
+      contexto
+    );
+  }
+
+  public async listarComandosPendentes(
+    identificador: string
+  ): Promise<ComandoDispositivo[]> {
+    const dispositivo = await this.buscarPorIdentificador(identificador);
+    dispositivo.ultimoSinalEm = new Date();
+    await this.dispositivosRepositorio.save(dispositivo);
+
+    const comandos = await this.comandosRepositorio.find({
+      where: { dispositivoId: dispositivo.id, status: 'pendente' },
+      order: { criadoEm: 'ASC' },
+      relations: { compartimento: true }
+    });
+
+    for (const comando of comandos) {
+      comando.status = 'enviado';
+      comando.enviadoEm = new Date();
+      await this.comandosRepositorio.save(comando);
+    }
+
+    return comandos;
+  }
+
+  public async registrarEventoDispositivo(
+    identificador: string,
+    entrada: RegistrarEventoDispositivoEntrada
+  ): Promise<EventoMedicamento> {
+    const dispositivo = await this.buscarPorIdentificador(identificador);
+    dispositivo.ultimoSinalEm = new Date();
+    await this.dispositivosRepositorio.save(dispositivo);
+
+    const chaveEvento = this.validarTextoObrigatorio(
+      'chaveEvento',
+      entrada.chaveEvento,
+      tamanhoMaximoTexto
+    );
+    const eventoExistente = await this.buscarEventoPorChave(chaveEvento);
+
+    if (eventoExistente) {
+      return eventoExistente;
+    }
+
+    const compartimento = await this.obterCompartimentoDoEvento(
+      dispositivo.id,
+      entrada
+    );
+    const tipo = this.validarTipoEvento(entrada.tipo);
+    const medicamentoId = this.validarTextoOpcional(
+      'medicamentoId',
+      entrada.medicamentoId ?? compartimento?.medicamentoId ?? null,
+      tamanhoMaximoTexto
+    );
+    const evento = this.eventosRepositorio.create({
+      medicamentoId,
+      agendamentoId: this.validarTextoOpcional(
+        'agendamentoId',
+        entrada.agendamentoId,
+        tamanhoMaximoTexto
+      ),
+      dispositivoId: dispositivo.identificador,
+      tipo,
+      origem: 'iot',
+      ocorridoEm: this.validarDataHoraOpcional(
+        'ocorridoEm',
+        entrada.ocorridoEm
+      ) ?? new Date(),
+      descricao: this.validarTextoOpcional(
+        'descricao',
+        entrada.descricao,
+        tamanhoMaximoObservacoes
+      ),
+      dados: {
+        ...(this.validarObjetoOpcional(entrada.dados) ?? {}),
+        chaveEvento,
+        dispositivoBancoId: dispositivo.id,
+        compartimentoId: compartimento?.id ?? null,
+        compartimentoNumero: compartimento?.numero ?? null
+      }
+    });
+
+    await this.atualizarCompartimentoPorEvento(compartimento, tipo);
+
+    return this.eventosRepositorio.save(evento);
+  }
+
+  public async obterStatus(
+    id: string,
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<{
+    dispositivoId: string;
+    identificador: string;
+    online: boolean;
+    ultimoSinalEm: Date | null;
+  }> {
+    const dispositivo = await this.buscarPorId(id, contexto);
+    const limiteOnline = Date.now() - minutosStatusOnline * 60 * 1000;
+
+    return {
+      dispositivoId: dispositivo.id,
+      identificador: dispositivo.identificador,
+      online: dispositivo.ultimoSinalEm
+        ? dispositivo.ultimoSinalEm.getTime() >= limiteOnline
+        : false,
+      ultimoSinalEm: dispositivo.ultimoSinalEm
+    };
+  }
+
+  private async criarComandoCompartimento(
+    dispositivoId: string,
+    compartimentoId: string,
+    tipo: TipoComandoDispositivo,
+    entrada: CriarComandoCompartimentoEntrada,
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<ComandoDispositivo> {
+    await this.buscarPorId(dispositivoId, contexto);
+    const compartimento = await this.buscarCompartimento(
+      dispositivoId,
+      compartimentoId
+    );
+    const comando = this.comandosRepositorio.create({
+      dispositivoId,
+      compartimentoId,
+      tipo,
+      status: 'pendente',
+      enviadoEm: null,
+      confirmadoEm: null,
+      expiraEm: new Date(Date.now() + 10 * 60 * 1000),
+      dados: {
+        motivo: this.validarTextoOpcional('motivo', entrada.motivo, 160),
+        agendamentoId: this.validarTextoOpcional(
+          'agendamentoId',
+          entrada.agendamentoId,
+          tamanhoMaximoTexto
+        ),
+        numeroCompartimento: compartimento.numero,
+        medicamentoId: compartimento.medicamentoId
+      }
+    });
+
+    compartimento.status = tipo === 'liberar_gaveta' ? 'liberado' : 'bloqueado';
+    await this.compartimentosRepositorio.save(compartimento);
+
+    return this.comandosRepositorio.save(comando);
   }
 
   private async normalizarDispositivo(
@@ -210,7 +434,7 @@ export class DispositivosServico implements DispositivosServicoContrato {
   }
 
   private async normalizarCompartimento(
-    dispositivoId: string,
+    dispositivo: Dispositivo,
     entrada: CriarCompartimentoEntrada | AtualizarCompartimentoEntrada,
     compartimentoAtual?: Compartimento
   ): Promise<CompartimentoNormalizado> {
@@ -222,10 +446,10 @@ export class DispositivosServico implements DispositivosServicoContrato {
       tamanhoMaximoTexto
     );
 
-    await this.garantirMedicamentoAtivo(medicamentoId);
+    await this.garantirMedicamentoDoPaciente(medicamentoId, dispositivo.pacienteId);
 
     return {
-      dispositivoId,
+      dispositivoId: dispositivo.id,
       numero: this.validarInteiro(
         'numero',
         entrada.numero ?? compartimentoAtual?.numero,
@@ -267,6 +491,77 @@ export class DispositivosServico implements DispositivosServicoContrato {
     return compartimento;
   }
 
+  private async buscarPorIdentificador(
+    identificador: string
+  ): Promise<Dispositivo> {
+    const dispositivo = await this.dispositivosRepositorio.findOne({
+      where: { identificador, ativo: true }
+    });
+
+    if (!dispositivo) {
+      throw new ErroHttp(404, 'Dispositivo nao encontrado');
+    }
+
+    return dispositivo;
+  }
+
+  private async obterCompartimentoDoEvento(
+    dispositivoId: string,
+    entrada: RegistrarEventoDispositivoEntrada
+  ): Promise<Compartimento | null> {
+    const compartimentoId = this.validarTextoOpcional(
+      'compartimentoId',
+      entrada.compartimentoId,
+      tamanhoMaximoTexto
+    );
+
+    if (compartimentoId) {
+      return this.buscarCompartimento(dispositivoId, compartimentoId);
+    }
+
+    if (entrada.compartimentoNumero === undefined || entrada.compartimentoNumero === null) {
+      return null;
+    }
+
+    const numero = this.validarInteiro('compartimentoNumero', entrada.compartimentoNumero, 1, 99);
+
+    return this.compartimentosRepositorio.findOne({
+      where: { dispositivoId, numero, ativo: true }
+    });
+  }
+
+  private async buscarEventoPorChave(
+    chaveEvento: string
+  ): Promise<EventoMedicamento | null> {
+    const eventos = await this.eventosRepositorio.find({
+      where: { origem: 'iot' }
+    });
+
+    return eventos.find((evento) => evento.dados?.chaveEvento === chaveEvento) ?? null;
+  }
+
+  private async atualizarCompartimentoPorEvento(
+    compartimento: Compartimento | null,
+    tipo: TipoEventoMedicamento
+  ): Promise<void> {
+    if (!compartimento) {
+      return;
+    }
+
+    if (tipo === 'compartimento_aberto') {
+      compartimento.status = 'aberto';
+    } else if (
+      tipo === 'compartimento_fechado' ||
+      tipo === 'medicamento_retirado'
+    ) {
+      compartimento.status = 'bloqueado';
+    } else if (tipo === 'falha') {
+      compartimento.status = 'erro';
+    }
+
+    await this.compartimentosRepositorio.save(compartimento);
+  }
+
   private async garantirPacienteAtivo(pacienteId: string): Promise<void> {
     const paciente = await this.pacientesRepositorio.findOne({
       where: { id: pacienteId, ativo: true }
@@ -277,8 +572,9 @@ export class DispositivosServico implements DispositivosServicoContrato {
     }
   }
 
-  private async garantirMedicamentoAtivo(
-    medicamentoId: string | null
+  private async garantirMedicamentoDoPaciente(
+    medicamentoId: string | null,
+    pacienteId: string
   ): Promise<void> {
     if (!medicamentoId) {
       return;
@@ -291,6 +587,49 @@ export class DispositivosServico implements DispositivosServicoContrato {
     if (!medicamento) {
       throw new ErroHttp(404, 'Medicamento nao encontrado para compartimento');
     }
+
+    if (medicamento.pacienteId !== pacienteId) {
+      throw new ErroHttp(
+        400,
+        'Medicamento deve pertencer ao mesmo paciente do dispositivo'
+      );
+    }
+  }
+
+  private async garantirAcessoPacienteId(
+    pacienteId: string,
+    contexto?: ContextoUsuarioDispositivo
+  ): Promise<void> {
+    if (!contexto || contexto.tipo === 'administrador') {
+      return;
+    }
+
+    const vinculo = await this.pacientesResponsaveisRepositorio.findOne({
+      where: {
+        pacienteId,
+        responsavelId: contexto.id,
+        ativo: true
+      }
+    });
+
+    if (vinculo) {
+      return;
+    }
+
+    throw new ErroHttp(
+      403,
+      'Usuario sem permissao para acessar dispositivo deste paciente'
+    );
+  }
+
+  private async obterPacienteIdsDoResponsavel(
+    responsavelId: string
+  ): Promise<string[]> {
+    const vinculos = await this.pacientesResponsaveisRepositorio.find({
+      where: { responsavelId, ativo: true }
+    });
+
+    return vinculos.map((vinculo) => vinculo.pacienteId);
   }
 
   private async garantirIdentificadorDisponivel(
@@ -328,6 +667,17 @@ export class DispositivosServico implements DispositivosServicoContrato {
     throw new ErroHttp(
       400,
       `Campo status deve ser um destes valores: ${statusCompartimento.join(', ')}`
+    );
+  }
+
+  private validarTipoEvento(valor: unknown): TipoEventoMedicamento {
+    if (typeof valor === 'string' && this.eTipoEventoDispositivo(valor)) {
+      return valor;
+    }
+
+    throw new ErroHttp(
+      400,
+      `Campo tipo deve ser um destes valores: ${tiposEventoDispositivo.join(', ')}`
     );
   }
 
@@ -407,6 +757,18 @@ export class DispositivosServico implements DispositivosServicoContrato {
     return valorNormalizado;
   }
 
+  private validarObjetoOpcional(valor: unknown): Record<string, unknown> | null {
+    if (valor === undefined || valor === null) {
+      return null;
+    }
+
+    if (typeof valor !== 'object' || Array.isArray(valor)) {
+      throw new ErroHttp(400, 'Campo dados deve ser objeto');
+    }
+
+    return valor as Record<string, unknown>;
+  }
+
   private validarInteiro(
     campo: string,
     valor: unknown,
@@ -438,6 +800,12 @@ export class DispositivosServico implements DispositivosServicoContrato {
   private eStatusCompartimento(valor: string): valor is StatusCompartimento {
     return statusCompartimento.includes(valor as StatusCompartimento);
   }
+
+  private eTipoEventoDispositivo(
+    valor: string
+  ): valor is TipoEventoMedicamento {
+    return tiposEventoDispositivo.includes(valor as TipoEventoMedicamento);
+  }
 }
 
 export function criarDispositivosServico(): DispositivosServico {
@@ -445,6 +813,9 @@ export function criarDispositivosServico(): DispositivosServico {
     AppDataSource.getRepository(Dispositivo),
     AppDataSource.getRepository(Compartimento),
     AppDataSource.getRepository(Paciente),
-    AppDataSource.getRepository(Medicamento)
+    AppDataSource.getRepository(Medicamento),
+    AppDataSource.getRepository(PacienteResponsavel),
+    AppDataSource.getRepository(ComandoDispositivo),
+    AppDataSource.getRepository(EventoMedicamento)
   );
 }

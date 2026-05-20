@@ -1,13 +1,13 @@
 import type { Repository } from 'typeorm';
 
 import { AgendamentoMedicamento } from '../src/entidades/AgendamentoMedicamento.js';
-import { Compartimento } from '../src/entidades/Compartimento.js';
-import { Dispositivo } from '../src/entidades/Dispositivo.js';
 import { EventoMedicamento } from '../src/entidades/EventoMedicamento.js';
 import { Medicamento } from '../src/entidades/Medicamento.js';
 import { Notificacao } from '../src/entidades/Notificacao.js';
 import { PacienteResponsavel } from '../src/entidades/PacienteResponsavel.js';
+import { TokenPush } from '../src/entidades/TokenPush.js';
 import { NotificacoesServico } from '../src/modulos/notificacoes/notificacoesServico.js';
+import type { EnviadorPush } from '../src/modulos/notificacoes/notificacoesTipos.js';
 
 const dataFixa = new Date('2026-01-01T00:00:00.000Z');
 
@@ -24,7 +24,13 @@ class RepositorioNotificacoesMemoria {
   }
 
   public async save(notificacao: Notificacao): Promise<Notificacao> {
-    this.notificacoes.push(notificacao);
+    const indice = this.notificacoes.findIndex((item) => item.id === notificacao.id);
+
+    if (indice >= 0) {
+      this.notificacoes[indice] = notificacao;
+    } else {
+      this.notificacoes.push(notificacao);
+    }
 
     return notificacao;
   }
@@ -64,6 +70,20 @@ class RepositorioNotificacoesMemoria {
         if (
           opcoes.where.eventoId !== undefined &&
           notificacao.eventoId !== opcoes.where.eventoId
+        ) {
+          return false;
+        }
+
+        if (
+          opcoes.where.tipo !== undefined &&
+          notificacao.tipo !== opcoes.where.tipo
+        ) {
+          return false;
+        }
+
+        if (
+          opcoes.where.agendamentoId !== undefined &&
+          notificacao.agendamentoId !== opcoes.where.agendamentoId
         ) {
           return false;
         }
@@ -130,29 +150,6 @@ class RepositorioEventosMemoria {
   }
 }
 
-class RepositorioCompartimentosMemoria {
-  public compartimentos: Compartimento[] = [];
-
-  public async find(opcoes: {
-    where: Partial<Compartimento>;
-  }): Promise<Compartimento[]> {
-    return this.compartimentos.filter((compartimento) => {
-      if (
-        opcoes.where.medicamentoId !== undefined &&
-        compartimento.medicamentoId !== opcoes.where.medicamentoId
-      ) {
-        return false;
-      }
-
-      if (opcoes.where.ativo !== undefined && compartimento.ativo !== opcoes.where.ativo) {
-        return false;
-      }
-
-      return true;
-    });
-  }
-}
-
 class RepositorioResponsaveisMemoria {
   public responsaveis: PacienteResponsavel[] = [];
 
@@ -208,6 +205,77 @@ class RepositorioMedicamentosMemoria {
   }
 }
 
+class RepositorioTokensPushMemoria {
+  public tokens: TokenPush[] = [];
+
+  public create(dados: Partial<TokenPush>): TokenPush {
+    return Object.assign(new TokenPush(), {
+      id: `token-${this.tokens.length + 1}`,
+      criadoEm: dataFixa,
+      atualizadoEm: dataFixa,
+      ...dados
+    });
+  }
+
+  public async save(token: TokenPush): Promise<TokenPush> {
+    const indice = this.tokens.findIndex((item) => item.id === token.id);
+
+    if (indice >= 0) {
+      this.tokens[indice] = token;
+    } else {
+      this.tokens.push(token);
+    }
+
+    return token;
+  }
+
+  public async find(opcoes: {
+    where: Partial<TokenPush>;
+  }): Promise<TokenPush[]> {
+    return this.tokens.filter((token) => {
+      if (
+        opcoes.where.responsavelId !== undefined &&
+        token.responsavelId !== opcoes.where.responsavelId
+      ) {
+        return false;
+      }
+
+      if (opcoes.where.ativo !== undefined && token.ativo !== opcoes.where.ativo) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  public async findOne(opcoes: {
+    where: Partial<TokenPush>;
+  }): Promise<TokenPush | null> {
+    return (
+      this.tokens.find((token) => {
+        if (opcoes.where.token !== undefined && token.token !== opcoes.where.token) {
+          return false;
+        }
+
+        return true;
+      }) ?? null
+    );
+  }
+}
+
+class EnviadorPushMemoria implements EnviadorPush {
+  public envios: unknown[] = [];
+
+  public async enviar(mensagem: Parameters<EnviadorPush['enviar']>[0]) {
+    this.envios.push(mensagem);
+
+    return {
+      sucesso: true,
+      detalhes: { data: [{ status: 'ok', id: 'ticket-1' }] }
+    };
+  }
+}
+
 function criarAgendamento(
   sobrescritas: Partial<AgendamentoMedicamento> = {}
 ): AgendamentoMedicamento {
@@ -233,34 +301,9 @@ function criarAgendamento(
 function criarMedicamento(): Medicamento {
   return Object.assign(new Medicamento(), {
     id: 'medicamento-1',
+    pacienteId: 'paciente-1',
     nome: 'Dipirona',
     dosagem: '500mg',
-    observacoes: null,
-    ativo: true,
-    criadoEm: dataFixa,
-    atualizadoEm: dataFixa
-  });
-}
-
-function criarCompartimento(): Compartimento {
-  return Object.assign(new Compartimento(), {
-    id: 'compartimento-1',
-    dispositivoId: 'dispositivo-1',
-    dispositivo: Object.assign(new Dispositivo(), {
-      id: 'dispositivo-1',
-      pacienteId: 'paciente-1',
-      nome: 'PillGator',
-      identificador: 'pillgator-1',
-      modelo: null,
-      ultimoSinalEm: null,
-      ativo: true,
-      criadoEm: dataFixa,
-      atualizadoEm: dataFixa
-    }),
-    numero: 1,
-    medicamentoId: 'medicamento-1',
-    medicamento: null,
-    status: 'bloqueado',
     observacoes: null,
     ativo: true,
     criadoEm: dataFixa,
@@ -288,29 +331,45 @@ function criarServico() {
   const notificacoesRepositorio = new RepositorioNotificacoesMemoria();
   const agendamentosRepositorio = new RepositorioAgendamentosMemoria();
   const eventosRepositorio = new RepositorioEventosMemoria();
-  const compartimentosRepositorio = new RepositorioCompartimentosMemoria();
   const responsaveisRepositorio = new RepositorioResponsaveisMemoria();
   const medicamentosRepositorio = new RepositorioMedicamentosMemoria();
+  const tokensPushRepositorio = new RepositorioTokensPushMemoria();
+  const enviadorPush = new EnviadorPushMemoria();
 
   agendamentosRepositorio.agendamentos.push(criarAgendamento());
-  compartimentosRepositorio.compartimentos.push(criarCompartimento());
   responsaveisRepositorio.responsaveis.push(criarResponsavel());
   medicamentosRepositorio.medicamentos.push(criarMedicamento());
+  tokensPushRepositorio.tokens.push(
+    Object.assign(new TokenPush(), {
+      id: 'token-1',
+      responsavelId: 'responsavel-1',
+      token: 'ExpoPushToken[aaaaaaaaaaaaaaaaaaaaaa]',
+      plataforma: 'android',
+      dispositivoNome: 'Celular teste',
+      ativo: true,
+      ultimoRegistroEm: dataFixa,
+      criadoEm: dataFixa,
+      atualizadoEm: dataFixa
+    })
+  );
 
   const servico = new NotificacoesServico(
     notificacoesRepositorio as unknown as Repository<Notificacao>,
     agendamentosRepositorio as unknown as Repository<AgendamentoMedicamento>,
     eventosRepositorio as unknown as Repository<EventoMedicamento>,
-    compartimentosRepositorio as unknown as Repository<Compartimento>,
     responsaveisRepositorio as unknown as Repository<PacienteResponsavel>,
-    medicamentosRepositorio as unknown as Repository<Medicamento>
+    medicamentosRepositorio as unknown as Repository<Medicamento>,
+    tokensPushRepositorio as unknown as Repository<TokenPush>,
+    enviadorPush
   );
 
   return {
     agendamentosRepositorio,
+    enviadorPush,
     eventosRepositorio,
     notificacoesRepositorio,
     responsaveisRepositorio,
+    tokensPushRepositorio,
     servico
   };
 }
@@ -337,8 +396,53 @@ describe('NotificacoesServico', () => {
       pacienteId: 'paciente-1',
       responsavelId: 'responsavel-1',
       status: 'enviada',
-      tipo: 'atraso_medicamento'
+      tipo: 'atraso_medicamento',
+      canal: 'push'
     });
+  });
+
+  it('deve registrar token push do responsavel', async () => {
+    const { tokensPushRepositorio, servico } = criarServico();
+
+    const token = await servico.registrarTokenPush(
+      {
+        token: 'ExpoPushToken[bbbbbbbbbbbbbbbbbbbbbb]',
+        plataforma: 'ios',
+        dispositivoNome: 'iPhone'
+      },
+      { id: 'responsavel-1', tipo: 'responsavel' }
+    );
+
+    expect(token).toMatchObject({
+      responsavelId: 'responsavel-1',
+      token: 'ExpoPushToken[bbbbbbbbbbbbbbbbbbbbbb]',
+      plataforma: 'ios',
+      dispositivoNome: 'iPhone',
+      ativo: true
+    });
+    expect(tokensPushRepositorio.tokens).toHaveLength(2);
+  });
+
+  it('deve criar notificacao antes do horario e enviar push', async () => {
+    const { enviadorPush, notificacoesRepositorio, servico } = criarServico();
+
+    const resultado = await servico.processarProximasNotificacoes({
+      referenciaEm: '2026-05-11T07:50:00.000Z',
+      antecedenciaMinutos: 15,
+      janelaMinutos: 5
+    });
+
+    expect(resultado).toMatchObject({
+      notificacoesCriadas: 1,
+      notificacoesEnviadas: 1,
+      notificacoesComErro: 0
+    });
+    expect(notificacoesRepositorio.notificacoes[0]).toMatchObject({
+      tipo: 'antes_horario_medicamento',
+      status: 'enviada',
+      canal: 'push'
+    });
+    expect(enviadorPush.envios).toHaveLength(1);
   });
 
   it('nao deve registrar atraso quando medicamento ja foi retirado', async () => {

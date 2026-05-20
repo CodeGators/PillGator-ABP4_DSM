@@ -8,8 +8,10 @@ const tabelasEsperadas = [
   'usuarios',
   'pacientes',
   'pacientes_responsaveis',
+  'tokens_push',
   'dispositivos',
   'compartimentos',
+  'comandos_dispositivos',
   'notificacoes'
 ];
 
