@@ -2,9 +2,17 @@ import type { TipoUsuario, Usuario } from '../../entidades/Usuario.js';
 
 export type CriarUsuarioEntrada = {
   nome?: unknown;
+  cpf?: unknown;
   email?: unknown;
   telefone?: unknown;
+  dataNascimento?: unknown;
+  enderecoRua?: unknown;
+  enderecoEstado?: unknown;
+  enderecoCidade?: unknown;
+  enderecoCep?: unknown;
+  enderecoComplemento?: unknown;
   senha?: unknown;
+  confirmarSenha?: unknown;
   tipo?: unknown;
   recebeNotificacoes?: unknown;
 };
@@ -19,8 +27,15 @@ export type ListarUsuariosFiltros = {
 
 export type UsuarioNormalizado = {
   nome: string;
+  cpf: string | null;
   email: string;
   telefone: string | null;
+  dataNascimento: string | null;
+  enderecoRua: string | null;
+  enderecoEstado: string | null;
+  enderecoCidade: string | null;
+  enderecoCep: string | null;
+  enderecoComplemento: string | null;
   senhaHash: string | null;
   tipo: TipoUsuario;
   recebeNotificacoes: boolean;

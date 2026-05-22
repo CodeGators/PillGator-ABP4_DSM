@@ -1,24 +1,26 @@
-#include <Servo.h>
+#include <ESP32Servo.h> // Necessário instalar a biblioteca ESP32Servo
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
+// Pinos padrão do I2C no ESP32: SDA = 21, SCL = 22
 LiquidCrystal_I2C lcd(0x27, 16, 2); 
 
 Servo servo1, servo2, servo3;
 
-// --- MAPEAMENTO DE PINOS ---
-const int leds[] = {7, 6, 5}; 
-const int pinoBuzzer = 8;
-const int pinosTrig[] = {22, 24, 26};
-const int pinosEcho[] = {23, 25, 27}; 
+// --- MAPEAMENTO DE PINOS (Atualizado para o seu ESP32) ---
+const int leds[] = {25, 26, 27}; 
+const int pinoBuzzer = 33;
+const int pinosTrig[] = {5, 18, 19};
+
+// Pinos 32 e 34 substituindo o 16 e 17 (Conforme ajustado)
+const int pinosEcho[] = {4, 32, 34}; 
 
 // --- CONFIGURAÇÕES DO SISTEMA ---
 const int limiteAbertura = 10; 
 
-// --- MODO APRESENTAÇÃO (1 seg real = 30 min virtuais) ---
+// --- MODO APRESENTAÇÃO ---
 bool interagindoComGaveta = false;
 
-// Relógio começa perto das 08:00 para acionar a primeira gaveta rápido
 unsigned long anteriorMillis = 0;
 int horas = 7, minutos = 45, segundos = 0; 
 
@@ -29,15 +31,27 @@ bool doseC_entregue = false;
 void setup() {
   Serial.begin(9600);
   
+  Wire.begin();
   lcd.init();
   lcd.backlight();
   
-  atualizarVisor("PillGator V4.2", "Pitch + Seguranca");
+  atualizarVisor("PillGator V4.2", "ESP32 Migrado");
   delay(2000);
 
-  servo1.attach(9);
-  servo2.attach(10);
-  servo3.attach(11);
+  // Alocação de Timers PWM para os servos no ESP32
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  
+  servo1.setPeriodHertz(50);
+  servo2.setPeriodHertz(50);
+  servo3.setPeriodHertz(50);
+
+  // Pinos dos servos: 13, 12 e 14
+  servo1.attach(13, 500, 2400);
+  servo2.attach(12, 500, 2400);
+  servo3.attach(14, 500, 2400);
   
   servo1.write(0);
   servo2.write(0);
@@ -52,7 +66,6 @@ void setup() {
   pinMode(pinoBuzzer, OUTPUT);
 }
 
-// Relógio com salto temporal de 30 minutos por segundo
 void processarRelogio() {
   if (interagindoComGaveta) return; 
 
@@ -97,7 +110,6 @@ long medirDistancia(int indiceGaveta) {
   digitalWrite(pinosTrig[indiceGaveta], LOW);
   
   long duracao = pulseIn(pinosEcho[indiceGaveta], HIGH, 30000); 
-  // CORREÇÃO: Retorna 999 (infinito) se der erro de leitura (gaveta muito aberta)
   if (duracao == 0) return 999;
   return duracao * 0.034 / 2;
 }
@@ -143,7 +155,6 @@ void liberarRemedio(int numeroGaveta, String nome) {
 
   bool gavetaFoiAberta = false;
   
-  // Aguarda até 10 segundos para a pessoa puxar a gaveta
   for(int i = 0; i < 100; i++) { 
     long distanciaAtual = medirDistancia(indice);
     if(distanciaAtual > limiteAbertura) { 
@@ -158,7 +169,6 @@ void liberarRemedio(int numeroGaveta, String nome) {
     
     bool gavetaFoiFechada = false;
     
-    // Aguarda até 10 segundos para a pessoa fechar a gaveta
     for(int i = 0; i < 100; i++) {
       long d = medirDistancia(indice);
       if(d > 0 && d <= limiteAbertura) {
@@ -168,17 +178,13 @@ void liberarRemedio(int numeroGaveta, String nome) {
       delay(100);
     }
     
-    // --- NOVO: ALERTA DE GAVETA ABERTA ---
-    // Se passaram os 10 segundos e a gaveta ainda está aberta, dispara a sirene
     if(!gavetaFoiFechada) {
       atualizarVisor("ALERTA CRITICO!", "GAVETA ABERTA!");
-      // Fica apitando em loop INFINITO até a pessoa empurrar a gaveta de volta
       while(medirDistancia(indice) > limiteAbertura) {
         tone(pinoBuzzer, 800); delay(300);
         noTone(pinoBuzzer);    delay(300);
       }
     }
-    // -------------------------------------
     
     for(int s = 8; s > 0; s--) {
       atualizarVisor("GAVETA FECHADA", "TRANCA EM: " + String(s) + "s");

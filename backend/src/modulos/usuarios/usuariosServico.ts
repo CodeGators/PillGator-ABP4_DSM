@@ -12,9 +12,9 @@ import type {
   UsuariosServicoContrato
 } from './usuariosTipos.js';
 
-const tiposUsuario: TipoUsuario[] = ['paciente', 'responsavel', 'administrador'];
 const tiposCadastroUsuario: TipoUsuario[] = ['responsavel', 'administrador'];
 const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const regexData = /^\d{4}-\d{2}-\d{2}$/;
 
 export class UsuariosServico implements UsuariosServicoContrato {
   constructor(private readonly usuariosRepositorio: Repository<Usuario>) {}
@@ -49,6 +49,7 @@ export class UsuariosServico implements UsuariosServicoContrato {
   public async criar(entrada: CriarUsuarioEntrada): Promise<Usuario> {
     const dados = await this.normalizarUsuario(entrada);
     await this.garantirEmailDisponivel(dados.email);
+    await this.garantirCpfDisponivel(dados.cpf);
 
     const usuario = this.usuariosRepositorio.create(dados);
 
@@ -64,6 +65,10 @@ export class UsuariosServico implements UsuariosServicoContrato {
 
     if (dados.email !== usuario.email) {
       await this.garantirEmailDisponivel(dados.email, usuario.id);
+    }
+
+    if (dados.cpf !== usuario.cpf) {
+      await this.garantirCpfDisponivel(dados.cpf, usuario.id);
     }
 
     Object.assign(usuario, dados);
@@ -88,11 +93,60 @@ export class UsuariosServico implements UsuariosServicoContrato {
         entrada.nome ?? usuarioAtual?.nome,
         120
       ),
+      cpf: this.validarCpf(
+        this.obterValorCadastroObrigatorio('cpf', entrada.cpf, usuarioAtual?.cpf)
+      ),
       email: this.validarEmail(entrada.email ?? usuarioAtual?.email),
       telefone: this.validarTextoOpcional(
         'telefone',
         entrada.telefone ?? usuarioAtual?.telefone ?? null,
         30
+      ),
+      dataNascimento: this.validarDataNascimento(
+        this.obterValorCadastroObrigatorio(
+          'dataNascimento',
+          entrada.dataNascimento,
+          usuarioAtual?.dataNascimento
+        )
+      ),
+      enderecoRua: this.validarTextoObrigatorio(
+        'enderecoRua',
+        this.obterValorCadastroObrigatorio(
+          'enderecoRua',
+          entrada.enderecoRua,
+          usuarioAtual?.enderecoRua
+        ),
+        160
+      ),
+      enderecoEstado: this.validarEstado(
+        this.obterValorCadastroObrigatorio(
+          'enderecoEstado',
+          entrada.enderecoEstado,
+          usuarioAtual?.enderecoEstado
+        )
+      ),
+      enderecoCidade: this.validarTextoObrigatorio(
+        'enderecoCidade',
+        this.obterValorCadastroObrigatorio(
+          'enderecoCidade',
+          entrada.enderecoCidade,
+          usuarioAtual?.enderecoCidade
+        ),
+        120
+      ),
+      enderecoCep: this.validarCep(
+        this.obterValorCadastroObrigatorio(
+          'enderecoCep',
+          entrada.enderecoCep,
+          usuarioAtual?.enderecoCep
+        )
+      ),
+      enderecoComplemento: this.validarTextoOpcional(
+        'enderecoComplemento',
+        entrada.enderecoComplemento ??
+          usuarioAtual?.enderecoComplemento ??
+          null,
+        120
       ),
       senhaHash: await this.normalizarSenha(entrada, usuarioAtual),
       tipo: this.validarTipo(entrada.tipo ?? usuarioAtual?.tipo),
@@ -114,10 +168,20 @@ export class UsuariosServico implements UsuariosServicoContrato {
     usuarioAtual?: Usuario
   ): Promise<string | null> {
     if (entrada.senha === undefined || entrada.senha === null || entrada.senha === '') {
-      return usuarioAtual?.senhaHash ?? null;
+      if (usuarioAtual) {
+        return usuarioAtual.senhaHash;
+      }
+
+      throw new ErroHttp(400, 'Campo senha e obrigatorio');
     }
 
-    return gerarHashSenha(validarSenha(entrada.senha));
+    const senha = validarSenha(entrada.senha);
+
+    if (entrada.confirmarSenha !== senha) {
+      throw new ErroHttp(400, 'Campo confirmarSenha deve ser igual a senha');
+    }
+
+    return gerarHashSenha(senha);
   }
 
   private async garantirEmailDisponivel(
@@ -133,6 +197,39 @@ export class UsuariosServico implements UsuariosServicoContrato {
     }
   }
 
+  private async garantirCpfDisponivel(
+    cpf: string | null,
+    usuarioIdAtual?: string
+  ): Promise<void> {
+    if (!cpf) {
+      return;
+    }
+
+    const usuarioComCpf = await this.usuariosRepositorio.findOne({
+      where: { cpf }
+    });
+
+    if (usuarioComCpf && usuarioComCpf.id !== usuarioIdAtual) {
+      throw new ErroHttp(409, 'CPF ja cadastrado');
+    }
+  }
+
+  private obterValorCadastroObrigatorio(
+    campo: string,
+    valorEntrada: unknown,
+    valorAtual?: string | null
+  ): unknown {
+    if (valorEntrada !== undefined) {
+      return valorEntrada;
+    }
+
+    if (valorAtual !== undefined) {
+      return valorAtual;
+    }
+
+    throw new ErroHttp(400, `Campo ${campo} e obrigatorio`);
+  }
+
   private validarEmail(valor: unknown): string {
     const email = this.validarTextoObrigatorio('email', valor, 160)
       .toLowerCase();
@@ -142,6 +239,85 @@ export class UsuariosServico implements UsuariosServicoContrato {
     }
 
     return email;
+  }
+
+  private validarCpf(valor: unknown): string {
+    const cpf = this.validarTextoObrigatorio('cpf', valor, 14).replace(/\D/g, '');
+
+    if (
+      cpf.length !== 11 ||
+      /^(\d)\1{10}$/.test(cpf) ||
+      !this.cpfTemDigitosVerificadoresValidos(cpf)
+    ) {
+      throw new ErroHttp(400, 'Campo cpf deve ser um CPF valido');
+    }
+
+    return cpf;
+  }
+
+  private cpfTemDigitosVerificadoresValidos(cpf: string): boolean {
+    const calcularDigito = (tamanho: number): number => {
+      const soma = cpf
+        .slice(0, tamanho)
+        .split('')
+        .reduce((total, digito, indice) => {
+          return total + Number(digito) * (tamanho + 1 - indice);
+        }, 0);
+      const resto = (soma * 10) % 11;
+
+      return resto === 10 ? 0 : resto;
+    };
+
+    return calcularDigito(9) === Number(cpf[9]) &&
+      calcularDigito(10) === Number(cpf[10]);
+  }
+
+  private validarCep(valor: unknown): string {
+    const cep = this.validarTextoObrigatorio('enderecoCep', valor, 10).replace(
+      /\D/g,
+      ''
+    );
+
+    if (cep.length !== 8) {
+      throw new ErroHttp(400, 'Campo enderecoCep deve ter 8 digitos');
+    }
+
+    return cep;
+  }
+
+  private validarEstado(valor: unknown): string {
+    const estado = this.validarTextoObrigatorio('enderecoEstado', valor, 2)
+      .toUpperCase();
+
+    if (!/^[A-Z]{2}$/.test(estado)) {
+      throw new ErroHttp(400, 'Campo enderecoEstado deve ter 2 letras');
+    }
+
+    return estado;
+  }
+
+  private validarDataNascimento(valor: unknown): string {
+    if (typeof valor !== 'string' || !regexData.test(valor)) {
+      throw new ErroHttp(
+        400,
+        'Campo dataNascimento deve estar no formato YYYY-MM-DD'
+      );
+    }
+
+    const data = new Date(`${valor}T00:00:00.000Z`);
+
+    if (Number.isNaN(data.getTime()) || valor !== data.toISOString().slice(0, 10)) {
+      throw new ErroHttp(400, 'Campo dataNascimento deve ser uma data valida');
+    }
+
+    const hoje = new Date();
+    const hojeIso = hoje.toISOString().slice(0, 10);
+
+    if (valor > hojeIso) {
+      throw new ErroHttp(400, 'Campo dataNascimento nao pode ser futuro');
+    }
+
+    return valor;
   }
 
   public validarTipo(valor: unknown): TipoUsuario {
@@ -217,12 +393,8 @@ export class UsuariosServico implements UsuariosServicoContrato {
     return valor;
   }
 
-  private eTipoUsuario(valor: string): valor is TipoUsuario {
-    return tiposUsuario.includes(valor as TipoUsuario);
-  }
-
   private eTipoCadastroUsuario(valor: string): valor is TipoUsuario {
-    return this.eTipoUsuario(valor) && tiposCadastroUsuario.includes(valor);
+    return tiposCadastroUsuario.includes(valor as TipoUsuario);
   }
 }
 

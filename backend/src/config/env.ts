@@ -14,5 +14,7 @@ export const env = {
   jwtExpiracao: process.env.JWT_EXPIRES_IN ?? '8h',
   mqttBrokerUrl: process.env.MQTT_BROKER_URL ?? '',
   mqttUsuario: process.env.MQTT_USERNAME ?? '',
-  mqttSenha: process.env.MQTT_PASSWORD ?? ''
+  mqttSenha: process.env.MQTT_PASSWORD ?? '',
+  expoPushUrl:
+    process.env.EXPO_PUSH_URL ?? 'https://exp.host/--/api/v2/push/send'
 };

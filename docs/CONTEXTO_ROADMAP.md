@@ -480,6 +480,18 @@ Acao:
 - Permitir que o mobile consulte a base antes de cadastrar um medicamento no tratamento do paciente.
 - Manter a base publica separada dos medicamentos cadastrados para cada paciente.
 
+### Atualizacao - Backend Alinhado ao Fluxo Real
+
+- Cadastro de responsavel com dados completos, senha e autenticacao.
+- Paciente como entidade de cuidado, com vinculo N:N com responsaveis.
+- Medicamento do paciente separado da base publica de medicamentos.
+- Agendamento vinculado ao medicamento do paciente.
+- Notificacoes push com tokens Expo e historico em `notificacoes`.
+- Dispositivos e gavetas vinculados ao paciente.
+- Comandos de liberar/travar gaveta para o IoT buscar.
+- Eventos do IoT com chave idempotente para evitar duplicidade.
+- Contrato IoT documentado em `docs/CONTRATO_IOT_BACKEND.md`.
+
 ## Lista Inicial de Tarefas
 
 ### Tarefa 1 - Preparar fluxo Git

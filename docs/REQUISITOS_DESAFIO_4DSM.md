@@ -28,15 +28,15 @@ Mesmo sem implementar o firmware, precisamos fornecer contratos, endpoints e doc
 |---|---|---|---|
 | RF01 | Cadastro e configuracao de medicamentos com nome, dosagem, horarios e compartimento associado | Parcial | CRUD de medicamentos, agendamentos e compartimentos feito; falta mobile e integracao final |
 | RF02 | Programacao de multiplos horarios, frequencia diaria e intervalos especificos | Parcial | Agendamentos feito; falta validar com banco real e mobile |
-| RF03 | Controle de compartimentos IoT | Parcial | Backend modelou dispositivos/compartimentos; falta integracao IoT |
-| RF04 | Bloqueio de compartimentos indevidos | Parcial | Backend tem status de compartimento; falta regra de liberacao e firmware |
+| RF03 | Controle de compartimentos IoT | Parcial | Backend modelou dispositivos/compartimentos e contratos IoT; falta firmware |
+| RF04 | Bloqueio de compartimentos indevidos | Parcial | Backend cria comandos de liberar/travar gaveta; firmware executa |
 | RF05 | Alerta sonoro | Fora do firmware, pendente no contrato | Backend deve registrar/enviar eventos/comandos; firmware executa |
-| RF06 | Registro de retirada de medicamento | Pendente | Eventos e historico; endpoint IoT para retirada |
-| RF07 | Monitoramento de atraso na administracao | Parcial | Backend verifica atrasos e registra eventos; falta agendamento automatico/job |
-| RF08 | Notificacao ao responsavel | Parcial | Backend cria historico de notificacoes internas; falta push no mobile |
+| RF06 | Registro de retirada de medicamento | Parcial | Backend recebe eventos IoT de retirada; falta firmware enviar |
+| RF07 | Monitoramento de atraso na administracao | Parcial | Backend verifica atrasos e registra eventos; falta job em producao |
+| RF08 | Notificacao ao responsavel | Parcial | Backend registra tokens e envia Expo Push; falta mobile registrar token real |
 | RF09 | App mobile para programacao, historico e notificacoes | Pendente | Base do mobile |
-| RF10 | Integracao com servidor em nuvem para programacoes, registros e eventos | Pendente | Integracao IoT, deploy/cloud |
-| RF11 | Sincronizacao de dados entre dispositivo, servidor e app | Pendente | Sincronizacao, retry, contratos |
+| RF10 | Integracao com servidor em nuvem para programacoes, registros e eventos | Parcial | Contratos backend prontos; falta deploy/cloud e firmware |
+| RF11 | Sincronizacao de dados entre dispositivo, servidor e app | Parcial | Comandos pendentes, eventos idempotentes e status online/offline no backend |
 | RF12 | Cadastro de responsaveis | Parcial | Backend criou usuarios, pacientes e vinculos; falta autenticacao e mobile |
 
 ## Requisitos Nao Funcionais
@@ -61,8 +61,8 @@ Mesmo sem implementar o firmware, precisamos fornecer contratos, endpoints e doc
 | Codigo | Restricao | Situacao | Tarefas relacionadas |
 |---|---|---|---|
 | RP01 | Backend em Node.js, Express e TypeScript | Feito | Backend atual segue esta stack |
-| RP02 | Integracao com dispositivo fisico com sensores/atuadores | Parcial | Backend modelou dispositivos/compartimentos; falta contrato IoT e firmware |
-| RP03 | Comunicacao IoT por HTTP/MQTT ou equivalente | Pendente | Definir protocolo e endpoints/topicos |
+| RP02 | Integracao com dispositivo fisico com sensores/atuadores | Parcial | Backend modelou contratos; falta firmware |
+| RP03 | Comunicacao IoT por HTTP/MQTT ou equivalente | Parcial | Backend definiu endpoints HTTP para comandos e eventos |
 | RP04 | Aplicativo movel | Pendente | Base do mobile |
 | RP05 | Arquitetura cliente-servidor | Parcial | Backend iniciado; falta mobile e IoT integrados |
 | RP06 | Desenvolvimento incremental por sprints | Em andamento | Roadmap e PRs pequenos |
@@ -78,9 +78,9 @@ Mesmo sem implementar o firmware, precisamos fornecer contratos, endpoints e doc
 1. Validar banco local com Docker e migrations.
 2. Integrar autenticacao, usuarios, pacientes e responsaveis ao mobile.
 3. Modelar dispositivos e compartimentos.
-4. Criar integracao backend/IoT por HTTP ou MQTT.
-5. Registrar eventos de abertura, retirada, alerta, atraso e falha.
-6. Criar monitoramento de atraso e notificacoes ao responsavel.
+4. Adaptar firmware IoT para consumir contratos HTTP do backend.
+5. Integrar eventos reais de abertura, retirada, alerta, atraso e falha.
+6. Colocar monitoramento de atraso e notificacoes em job no ambiente real.
 7. Implementar aplicativo mobile real.
 8. Configurar Swagger/OpenAPI.
 9. Documentar arquitetura, diagramas e comunicacao.

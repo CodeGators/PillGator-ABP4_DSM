@@ -46,8 +46,16 @@ describe('Autorizacao das rotas privadas', () => {
 
     const response = await request(app).post('/usuarios').send({
       nome: 'Maria Responsavel',
+      cpf: '935.411.347-80',
       email: 'maria@example.com',
+      telefone: '11999999999',
+      dataNascimento: '1990-05-20',
+      enderecoRua: 'Rua das Flores',
+      enderecoEstado: 'SP',
+      enderecoCidade: 'Jacarei',
+      enderecoCep: '12345-678',
       senha: 'senha-segura',
+      confirmarSenha: 'senha-segura',
       tipo: 'responsavel'
     });
 
@@ -62,8 +70,16 @@ describe('Autorizacao das rotas privadas', () => {
 
     const response = await request(app).post('/usuarios').send({
       nome: 'Admin',
+      cpf: '529.982.247-25',
       email: 'admin@example.com',
+      telefone: '11999999999',
+      dataNascimento: '1988-02-10',
+      enderecoRua: 'Rua Central',
+      enderecoEstado: 'SP',
+      enderecoCidade: 'Jacarei',
+      enderecoCep: '12345-678',
       senha: 'senha-segura',
+      confirmarSenha: 'senha-segura',
       tipo: 'administrador'
     });
 
@@ -81,8 +97,16 @@ describe('Autorizacao das rotas privadas', () => {
 
     const response = await request(app).post('/usuarios').send({
       nome: 'Joao Paciente',
+      cpf: '111.444.777-35',
       email: 'joao@example.com',
+      telefone: '11999999999',
+      dataNascimento: '2010-01-01',
+      enderecoRua: 'Rua Central',
+      enderecoEstado: 'SP',
+      enderecoCidade: 'Jacarei',
+      enderecoCep: '12345-678',
       senha: 'senha-segura',
+      confirmarSenha: 'senha-segura',
       tipo: 'paciente'
     });
 
@@ -134,16 +158,24 @@ describe('Autorizacao das rotas privadas', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         nome: 'Novo Admin',
+        cpf: '529.982.247-25',
         email: 'novo.admin@example.com',
+        telefone: '11999999999',
+        dataNascimento: '1988-02-10',
+        enderecoRua: 'Rua Central',
+        enderecoEstado: 'SP',
+        enderecoCidade: 'Jacarei',
+        enderecoCep: '12345-678',
         senha: 'senha-segura',
+        confirmarSenha: 'senha-segura',
         tipo: 'administrador'
       });
 
     expect(response.status).toBe(201);
   });
 
-  it('deve negar paciente em rota administrativa', async () => {
-    const usuario = criarUsuario('paciente');
+  it('deve negar responsavel em rota administrativa', async () => {
+    const usuario = criarUsuario('responsavel');
     const autenticacaoServico = criarAutenticacaoServico();
     const app = criarApp({ autenticacaoServico });
     const token = autenticacaoServico.gerarToken(usuario).token;

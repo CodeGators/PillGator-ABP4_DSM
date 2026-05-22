@@ -11,6 +11,11 @@ export function criarNotificacoesRotas(
   const controlador = new NotificacoesControlador(servico);
 
   rotas.get('/', controlador.listar);
+  rotas.post('/tokens-push', controlador.registrarTokenPush);
+  rotas.post(
+    '/processar-proximas',
+    controlador.processarProximasNotificacoes
+  );
   rotas.post('/verificar-atrasos', controlador.verificarAtrasos);
 
   return rotas;
