@@ -118,7 +118,7 @@ async function processarHeartbeat(
     return;
   }
 
-  dispositivo.ultimoSinalEm = new Date();
+  dispositivo.ultimoSinalEm = dados.timestamp ? new Date(dados.timestamp) : new Date();
   await dispositivosRepo.save(dispositivo);
   console.log(`MQTT: heartbeat atualizado para ${dispositivoIdentificador}`);
 }
