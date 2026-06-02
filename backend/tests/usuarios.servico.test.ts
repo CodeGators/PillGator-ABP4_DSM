@@ -137,6 +137,16 @@ describe('UsuariosServico', () => {
     });
   });
 
+  it('deve aceitar data de nascimento em formato brasileiro', async () => {
+    const { servico } = criarServico();
+
+    const usuario = await servico.criar(
+      criarEntradaUsuario({ dataNascimento: '20/05/1990' })
+    );
+
+    expect(usuario.dataNascimento).toBe('1990-05-20');
+  });
+
   it('deve rejeitar email duplicado', async () => {
     const { servico } = criarServico();
 

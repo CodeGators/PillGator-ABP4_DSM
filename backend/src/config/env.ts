@@ -15,6 +15,12 @@ export const env = {
   mqttBrokerUrl: process.env.MQTT_BROKER_URL ?? '',
   mqttUsuario: process.env.MQTT_USERNAME ?? '',
   mqttSenha: process.env.MQTT_PASSWORD ?? '',
+  mqttEsp32Usuario:
+    process.env.MQTT_ESP32_USERNAME ?? process.env.MQTT_USERNAME ?? '',
+  mqttEsp32Senha:
+    process.env.MQTT_ESP32_PASSWORD ?? process.env.MQTT_PASSWORD ?? '',
+  simuladorDeviceId: process.env.SIMULADOR_DEVICE_ID ?? 'PILL-001',
+  simuladorGavetas: Number(process.env.SIMULADOR_GAVETAS ?? 3),
   expoPushUrl:
     process.env.EXPO_PUSH_URL ?? 'https://exp.host/--/api/v2/push/send'
 };

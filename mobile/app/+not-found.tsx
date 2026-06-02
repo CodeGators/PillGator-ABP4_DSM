@@ -1,17 +1,19 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Text, View } from '@/components/Themed';
+import { Botao } from '@/src/componentes/base/Botao';
+import { tema } from '@/src/config/tema';
 
 export default function NotFoundScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: 'Tela nao encontrada' }} />
       <View style={styles.container}>
-        <Text style={styles.title}>This screen doesn't exist.</Text>
+        <Text style={styles.title}>Tela nao encontrada</Text>
+        <Text style={styles.description}>O caminho acessado nao existe no app PillGator.</Text>
 
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Go to home screen!</Text>
+        <Link href="/login" asChild>
+          <Botao titulo="Voltar para o inicio" />
         </Link>
       </View>
     </>
@@ -22,19 +24,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
+    backgroundColor: tema.cores.fundo,
+    gap: tema.espacamentos.lg,
     justifyContent: 'center',
-    padding: 20,
+    padding: tema.espacamentos.xl,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    color: tema.cores.texto,
+    fontSize: tema.tipografia.titulo,
+    fontWeight: '900',
+    textAlign: 'center',
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#2e78b7',
+  description: {
+    color: tema.cores.textoSecundario,
+    fontSize: tema.tipografia.corpo,
+    lineHeight: 22,
+    textAlign: 'center',
   },
 });

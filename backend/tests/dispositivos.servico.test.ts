@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import type { Repository } from 'typeorm';
 
 import { ComandoDispositivo } from '../src/entidades/ComandoDispositivo.js';
@@ -8,7 +9,10 @@ import { Medicamento } from '../src/entidades/Medicamento.js';
 import { Paciente } from '../src/entidades/Paciente.js';
 import { PacienteResponsavel } from '../src/entidades/PacienteResponsavel.js';
 import { ErroHttp } from '../src/erros/ErroHttp.js';
-import { DispositivosServico } from '../src/modulos/dispositivos/dispositivosServico.js';
+import {
+  DispositivosServico,
+  type PublicadorComandoMqtt
+} from '../src/modulos/dispositivos/dispositivosServico.js';
 
 const dataFixa = new Date('2026-01-01T00:00:00.000Z');
 
@@ -356,7 +360,7 @@ function criarMedicamento(
   });
 }
 
-function criarServico() {
+function criarServico(publicarComandoMqtt: PublicadorComandoMqtt = () => undefined) {
   const dispositivosRepositorio = new RepositorioDispositivosMemoria();
   const compartimentosRepositorio = new RepositorioCompartimentosMemoria();
   const pacientesRepositorio = new RepositorioPacientesMemoria();
@@ -376,7 +380,8 @@ function criarServico() {
     medicamentosRepositorio as unknown as Repository<Medicamento>,
     pacientesResponsaveisRepositorio as unknown as Repository<PacienteResponsavel>,
     comandosRepositorio as unknown as Repository<ComandoDispositivo>,
-    eventosRepositorio as unknown as Repository<EventoMedicamento>
+    eventosRepositorio as unknown as Repository<EventoMedicamento>,
+    publicarComandoMqtt
   );
 
   return {
@@ -534,8 +539,9 @@ describe('DispositivosServico', () => {
   });
 
   it('deve criar comando para liberar compartimento', async () => {
+    const publicarComandoMqtt = jest.fn();
     const { comandosRepositorio, compartimentosRepositorio, servico } =
-      criarServico();
+      criarServico(publicarComandoMqtt);
     const dispositivo = await servico.criar({
       pacienteId: 'paciente-1',
       nome: 'PillGator',
@@ -560,6 +566,76 @@ describe('DispositivosServico', () => {
     });
     expect(comandosRepositorio.comandos).toHaveLength(1);
     expect(compartimentosRepositorio.compartimentos[0]?.status).toBe('liberado');
+    expect(publicarComandoMqtt).toHaveBeenCalledWith(
+      'pillgator-01',
+      'liberar',
+      expect.objectContaining({
+        acao: 'liberar',
+        compartimento: 1,
+        medicamentoId: 'medicamento-1',
+        motivo: 'Administrar medicamento'
+      })
+    );
+  });
+
+  it('deve publicar comando mqtt para travar compartimento', async () => {
+    const publicarComandoMqtt = jest.fn();
+    const { compartimentosRepositorio, servico } = criarServico(publicarComandoMqtt);
+    const dispositivo = await servico.criar({
+      pacienteId: 'paciente-1',
+      nome: 'PillGator',
+      identificador: 'pillgator-01'
+    });
+    const compartimento = await servico.criarCompartimento(dispositivo.id, {
+      numero: 1,
+      status: 'liberado'
+    });
+
+    const comando = await servico.travarCompartimento(
+      dispositivo.id,
+      compartimento.id,
+      { motivo: 'Teste manual' }
+    );
+
+    expect(comando).toMatchObject({
+      dispositivoId: dispositivo.id,
+      compartimentoId: compartimento.id,
+      tipo: 'travar_gaveta',
+      status: 'pendente'
+    });
+    expect(compartimentosRepositorio.compartimentos[0]?.status).toBe('bloqueado');
+    expect(publicarComandoMqtt).toHaveBeenCalledWith(
+      'pillgator-01',
+      'bloquear',
+      expect.objectContaining({
+        acao: 'bloquear',
+        compartimento: 1,
+        motivo: 'Teste manual'
+      })
+    );
+  });
+
+  it('deve manter comando salvo quando publicacao mqtt falhar', async () => {
+    const publicarComandoMqtt = jest.fn(() => {
+      throw new Error('mqtt offline');
+    });
+    const { comandosRepositorio, servico } = criarServico(publicarComandoMqtt);
+    const dispositivo = await servico.criar({
+      pacienteId: 'paciente-1',
+      nome: 'PillGator',
+      identificador: 'pillgator-01'
+    });
+    const compartimento = await servico.criarCompartimento(dispositivo.id, {
+      numero: 1
+    });
+
+    await expect(
+      servico.liberarCompartimento(dispositivo.id, compartimento.id, {})
+    ).resolves.toMatchObject({
+      tipo: 'liberar_gaveta',
+      status: 'pendente'
+    });
+    expect(comandosRepositorio.comandos).toHaveLength(1);
   });
 
   it('deve listar comandos pendentes e marcar como enviados', async () => {

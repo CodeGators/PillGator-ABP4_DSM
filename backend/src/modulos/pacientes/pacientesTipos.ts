@@ -7,6 +7,7 @@ export type CriarPacienteEntrada = {
   nome?: unknown;
   dataNascimento?: unknown;
   observacoes?: unknown;
+  fotoUrl?: unknown;
   souEuMesmo?: unknown;
 };
 
@@ -25,6 +26,7 @@ export type PacienteNormalizado = {
   nome: string;
   dataNascimento: string | null;
   observacoes: string | null;
+  fotoUrl: string | null;
   ativo: boolean;
 };
 
