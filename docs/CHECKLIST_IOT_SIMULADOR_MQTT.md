@@ -57,6 +57,7 @@ Da para testar quase tudo:
 - [ ] Simulador publicando `gaveta_aberta`, `medicamento_retirado`, `dose_perdida` e `erro`.
 - [x] Backend recebendo eventos MQTT.
 - [x] Backend salvando status/eventos no banco.
+- [x] Backend atualizando status das gavetas via heartbeat/eventos MQTT.
 - [x] App consultando status/historico pelo backend.
 
 O que nao da para validar sem hardware:
@@ -124,8 +125,10 @@ Quando o equipamento chegar:
   - [x] `pillgator/+/status/#`
 - [x] Backend processa `heartbeat` e atualiza `ultimoSinalEm` do dispositivo.
 - [x] Backend processa eventos MQTT e salva em `eventos_medicamentos`.
+- [x] Backend atualiza `compartimentos.status` a partir do MQTT.
 - [x] Existe firmware real em `iot/cod hardware/codigo_esp32.ino`.
 - [x] Existe simulador Node do ESP32 em `backend/src/scripts/simular-esp32.ts`.
+- [x] Existe diagnostico Node em `backend/src/scripts/diagnosticar-iot.ts`.
 - [x] Comandos REST de liberar/travar publicam MQTT automaticamente.
 
 ## Fase 1 - Configuracao MQTT
@@ -215,6 +218,16 @@ cd backend
 npm run iot:simular
 ```
 
+- [x] Adicionar script de diagnostico:
+
+```json
+{
+  "scripts": {
+    "iot:diagnosticar": "tsx src/scripts/diagnosticar-iot.ts"
+  }
+}
+```
+
 ## Fase 4 - Ligar App -> Backend -> MQTT
 
 Hoje o app chama o backend para liberar/travar gaveta. O backend cria comando no banco, mas ainda precisa publicar o comando MQTT para o ESP32/simulador.
@@ -300,6 +313,55 @@ npx expo start --lan
 - [ ] Ver no backend logs de eventos recebidos.
 - [ ] Ver no app se status/historico atualizam apos refetch.
 
+## Fase 5.1 - Teste Nuvem Plug and Play
+
+Objetivo: validar o fluxo online antes de ligar o hardware real.
+
+```text
+Script local -> MQTT -> Backend Railway -> Neon PostgreSQL
+```
+
+Pre-requisitos:
+
+- [ ] Backend online no Railway respondendo `/saude`.
+- [ ] Variaveis MQTT configuradas no Railway:
+  - [ ] `MQTT_BROKER_URL`
+  - [ ] `MQTT_USERNAME`
+  - [ ] `MQTT_PASSWORD`
+- [ ] Variaveis MQTT configuradas no `backend/.env` local:
+  - [ ] `MQTT_BROKER_URL`
+  - [ ] `MQTT_ESP32_USERNAME`
+  - [ ] `MQTT_ESP32_PASSWORD`
+  - [ ] `SIMULADOR_DEVICE_ID=PILL-001`
+- [ ] `DATABASE_URL` local apontando para o mesmo Neon usado pelo Railway.
+- [ ] Dispositivo `PILL-001` criado no banco e vinculado a um paciente.
+- [ ] Pelo menos uma gaveta/compartimento criada para o dispositivo.
+
+Rodar:
+
+```bash
+cd backend
+npm run iot:diagnosticar
+```
+
+Resultado esperado:
+
+```text
+IOT: conectado ao broker ...
+IOT: publicando heartbeat de PILL-001
+IOT: publicando evento gaveta_aberta ...
+IOT: aguardando backend processar MQTT...
+IOT: diagnostico concluido com sucesso.
+```
+
+Se falhar, conferir nesta ordem:
+
+- [ ] `MQTT_BROKER_URL` e credenciais no Railway.
+- [ ] Logs do Railway mostrando `MQTT: conectado ao broker com sucesso`.
+- [ ] Se `PILL-001` existe no Neon.
+- [ ] Se o Railway e o script local apontam para o mesmo broker MQTT.
+- [ ] Se o Railway e o script local apontam para o mesmo banco Neon.
+
 ## Fase 6 - Dados de Teste
 
 - [ ] Criar paciente de teste.
@@ -323,8 +385,8 @@ Backend:
 - [x] Testar que `liberarCompartimento` cria comando e chama MQTT.
 - [x] Testar que `travarCompartimento` cria comando e chama MQTT.
 - [x] Testar fallback quando MQTT nao esta conectado.
-- [ ] Testar `processarMensagem` com heartbeat.
-- [ ] Testar `processarMensagem` com evento `gaveta_aberta`.
+- [x] Testar `processarMensagem` com heartbeat.
+- [x] Testar `processarMensagem` com evento `gaveta_aberta`.
 - [ ] Testar idempotencia por `msgId`.
 
 Simulador:

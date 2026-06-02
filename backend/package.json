@@ -17,7 +17,8 @@
     "migration:revert": "npm run typeorm -- migration:revert",
     "db:check": "npm run build && node dist/src/scripts/verificar-banco.js",
     "base-medicamentos:importar": "npm run build && node dist/src/scripts/importar-base-medicamentos.js",
-    "iot:simular": "tsx src/scripts/simular-esp32.ts"
+    "iot:simular": "tsx src/scripts/simular-esp32.ts",
+    "iot:diagnosticar": "tsx src/scripts/diagnosticar-iot.ts"
   },
   "keywords": [],
   "author": "",

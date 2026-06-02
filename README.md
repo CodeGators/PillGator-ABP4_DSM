@@ -215,6 +215,7 @@ npm run migration:revert
 npm run db:check
 npm run base-medicamentos:importar
 npm run iot:simular
+npm run iot:diagnosticar
 ```
 
 Configuracao local padrao:
@@ -309,6 +310,13 @@ cd backend
 npm run iot:simular
 ```
 
+Para validar se MQTT, backend online e banco estao conectados corretamente:
+
+```bash
+cd backend
+npm run iot:diagnosticar
+```
+
 Com hardware, siga:
 
 ```text
@@ -354,6 +362,7 @@ Fluxo manual minimo:
 6. Criar medicamento
 7. Criar agendamento
 8. Conferir dashboard, agenda e gavetas
+9. Rodar npm run iot:diagnosticar quando MQTT estiver configurado
 ```
 
 ---

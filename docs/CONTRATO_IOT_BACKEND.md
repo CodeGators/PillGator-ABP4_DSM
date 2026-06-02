@@ -88,6 +88,12 @@ Heartbeat:
 }
 ```
 
+Regras do heartbeat:
+
+- Atualiza `ultimoSinalEm` do dispositivo.
+- Se a gaveta existir no banco, cada item de `gavetas` atualiza `compartimentos.status`.
+- Status aceitos para gaveta: `bloqueado`, `liberado`, `aberto`, `erro`.
+
 Evento:
 
 ```json
@@ -103,6 +109,15 @@ Evento:
 }
 ```
 
+Regras dos eventos MQTT:
+
+- `gaveta_aberta` e salvo como `compartimento_aberto` e muda a gaveta para `aberto`.
+- `medicamento_retirado` muda a gaveta para `bloqueado`.
+- `erro` e salvo como `falha` e muda a gaveta para `erro`.
+- `dose_perdida` e salvo como `atraso`.
+- Se a gaveta tiver medicamento vinculado, o evento fica associado ao `medicamentoId`.
+- `msgId` e usado para evitar processamento duplicado do mesmo evento.
+
 ## Simulador Node
 
 Sem hardware, use:
@@ -113,6 +128,15 @@ npm run iot:simular
 ```
 
 O simulador escuta `pillgator/PILL-001/comando/#`, simula a gaveta e publica eventos MQTT de volta para o backend.
+
+Para diagnosticar o caminho MQTT com o backend online e o banco Neon:
+
+```bash
+cd backend
+npm run iot:diagnosticar
+```
+
+Esse comando publica heartbeat e evento como se fosse o ESP32 e confirma se o backend processou no banco.
 
 ## Buscar Comandos Pendentes
 

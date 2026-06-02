@@ -124,6 +124,43 @@ Para o fluxo recomendado do projeto, usando um simulador Node que recebe comando
 
 Esse simulador permite testar o caminho completo `app -> backend -> MQTT -> IoT simulado -> MQTT -> backend`. Quando for necessario validar mais perto do firmware real, o mesmo checklist tambem descreve o nivel opcional de simulacao do codigo C/C++.
 
+### 4.0 Diagnostico rapido com backend online
+
+Use este teste antes de ligar o hardware. Ele publica um heartbeat e um evento MQTT como se fosse o ESP32, espera o backend Railway processar e confirma no Neon se foi salvo.
+
+Pre-requisitos:
+
+- Backend Railway online em `/saude`
+- Railway com `MQTT_BROKER_URL`, `MQTT_USERNAME` e `MQTT_PASSWORD`
+- `backend/.env` local com:
+  ```env
+  DATABASE_URL=postgresql://...neon...?sslmode=require
+  MQTT_BROKER_URL=mqtts://SEU_CLUSTER.s1.eu.hivemq.cloud:8883
+  MQTT_ESP32_USERNAME=pillgator-esp32
+  MQTT_ESP32_PASSWORD=SENHA_ESP32
+  SIMULADOR_DEVICE_ID=PILL-001
+  ```
+- Dispositivo `PILL-001` criado e vinculado ao paciente no app
+- Pelo menos uma gaveta criada para esse dispositivo
+
+Comando:
+
+```bash
+cd backend
+npm run iot:diagnosticar
+```
+
+Resultado esperado:
+
+```text
+IOT: conectado ao broker ...
+IOT: publicando heartbeat de PILL-001
+IOT: publicando evento gaveta_aberta ...
+IOT: diagnostico concluido com sucesso.
+```
+
+Se esse diagnostico passar, o caminho `MQTT -> backend -> banco` esta funcionando. Depois disso, o teste pelo app valida o caminho completo `app -> backend -> MQTT -> simulador/ESP32`.
+
 ### 4.1 Usando simulador Node recomendado
 
 1. Configure o `.env` do backend com as credenciais MQTT:
