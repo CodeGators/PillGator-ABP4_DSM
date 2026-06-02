@@ -5,6 +5,7 @@ import { Paciente } from '../../entidades/Paciente.js';
 import { PacienteResponsavel } from '../../entidades/PacienteResponsavel.js';
 import { Usuario } from '../../entidades/Usuario.js';
 import { ErroHttp } from '../../erros/ErroHttp.js';
+import { normalizarDataParaBanco } from '../../utils/datas.js';
 import type {
   AtualizarPacienteEntrada,
   CriarPacienteEntrada,
@@ -15,10 +16,10 @@ import type {
   VinculoResponsavelNormalizado
 } from './pacientesTipos.js';
 
-const regexData = /^\d{4}-\d{2}-\d{2}$/;
 const tamanhoMaximoTexto = 120;
 const tamanhoMaximoParentesco = 80;
 const tamanhoMaximoObservacoes = 1000;
+const tamanhoMaximoFotoUrl = 2000;
 
 export class PacientesServico implements PacientesServicoContrato {
   constructor(
@@ -76,7 +77,7 @@ export class PacientesServico implements PacientesServicoContrato {
       undefined,
       usuarioDoProprioPaciente
     );
-    await this.validarUsuarioVinculadoAoPaciente(dados.usuarioId);
+    await this.validarUsuarioPaciente(dados.usuarioId);
 
     const paciente = this.pacientesRepositorio.create(dados);
 
@@ -104,7 +105,7 @@ export class PacientesServico implements PacientesServicoContrato {
     const paciente = await this.buscarPorId(id, contexto);
     const dados = await this.normalizarPaciente(entrada, paciente);
 
-    await this.validarUsuarioVinculadoAoPaciente(dados.usuarioId, paciente.id);
+    await this.validarUsuarioPaciente(dados.usuarioId);
     Object.assign(paciente, dados);
 
     return this.pacientesRepositorio.save(paciente);
@@ -254,7 +255,9 @@ export class PacientesServico implements PacientesServicoContrato {
       dataNascimento: this.validarDataOpcional(
         'dataNascimento',
         entrada.dataNascimento === undefined
-          ? pacienteAtual?.dataNascimento ?? null
+          ? usuarioDoProprioPaciente?.dataNascimento ??
+            pacienteAtual?.dataNascimento ??
+            null
           : entrada.dataNascimento
       ),
       observacoes: this.validarTextoOpcional(
@@ -263,6 +266,13 @@ export class PacientesServico implements PacientesServicoContrato {
           ? pacienteAtual?.observacoes ?? null
           : entrada.observacoes,
         tamanhoMaximoObservacoes
+      ),
+      fotoUrl: this.validarTextoOpcional(
+        'fotoUrl',
+        entrada.fotoUrl === undefined
+          ? pacienteAtual?.fotoUrl ?? null
+          : entrada.fotoUrl,
+        tamanhoMaximoFotoUrl
       ),
       ativo: this.validarBooleano(
         'ativo',
@@ -330,10 +340,7 @@ export class PacientesServico implements PacientesServicoContrato {
     return usuario;
   }
 
-  private async validarUsuarioVinculadoAoPaciente(
-    usuarioId: string | null,
-    pacienteIdAtual?: string
-  ): Promise<void> {
+  private async validarUsuarioPaciente(usuarioId: string | null): Promise<void> {
     if (!usuarioId) {
       return;
     }
@@ -344,14 +351,6 @@ export class PacientesServico implements PacientesServicoContrato {
 
     if (!usuario || usuario.tipo !== 'responsavel') {
       throw new ErroHttp(404, 'Usuario responsavel nao encontrado');
-    }
-
-    const pacienteComUsuario = await this.pacientesRepositorio.findOne({
-      where: { usuarioId }
-    });
-
-    if (pacienteComUsuario && pacienteComUsuario.id !== pacienteIdAtual) {
-      throw new ErroHttp(409, 'Usuario ja esta vinculado a outro paciente');
     }
   }
 
@@ -366,21 +365,7 @@ export class PacientesServico implements PacientesServicoContrato {
   }
 
   private validarDataOpcional(campo: string, valor: unknown): string | null {
-    if (valor === undefined || valor === null || valor === '') {
-      return null;
-    }
-
-    if (typeof valor !== 'string' || !regexData.test(valor)) {
-      throw new ErroHttp(400, `Campo ${campo} deve estar no formato YYYY-MM-DD`);
-    }
-
-    const data = new Date(`${valor}T00:00:00.000Z`);
-
-    if (Number.isNaN(data.getTime()) || valor !== data.toISOString().slice(0, 10)) {
-      throw new ErroHttp(400, `Campo ${campo} deve ser uma data valida`);
-    }
-
-    return valor;
+    return normalizarDataParaBanco(campo, valor);
   }
 
   private validarTextoObrigatorio(

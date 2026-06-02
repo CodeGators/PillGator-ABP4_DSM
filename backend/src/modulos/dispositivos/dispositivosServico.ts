@@ -18,6 +18,7 @@ import { Medicamento } from '../../entidades/Medicamento.js';
 import { Paciente } from '../../entidades/Paciente.js';
 import { PacienteResponsavel } from '../../entidades/PacienteResponsavel.js';
 import { ErroHttp } from '../../erros/ErroHttp.js';
+import { publicarComando } from '../mqtt/mqttCliente.js';
 import type {
   AtualizarCompartimentoEntrada,
   AtualizarDispositivoEntrada,
@@ -48,6 +49,12 @@ const tamanhoMaximoTexto = 120;
 const tamanhoMaximoObservacoes = 1000;
 const minutosStatusOnline = 5;
 
+export type PublicadorComandoMqtt = (
+  dispositivoIdentificador: string,
+  comando: string,
+  dados: object
+) => void;
+
 export class DispositivosServico implements DispositivosServicoContrato {
   constructor(
     private readonly dispositivosRepositorio: Repository<Dispositivo>,
@@ -56,7 +63,8 @@ export class DispositivosServico implements DispositivosServicoContrato {
     private readonly medicamentosRepositorio: Repository<Medicamento>,
     private readonly pacientesResponsaveisRepositorio: Repository<PacienteResponsavel>,
     private readonly comandosRepositorio: Repository<ComandoDispositivo>,
-    private readonly eventosRepositorio: Repository<EventoMedicamento>
+    private readonly eventosRepositorio: Repository<EventoMedicamento>,
+    private readonly publicarComandoMqtt: PublicadorComandoMqtt = publicarComando
   ) {}
 
   public async listar(
@@ -364,7 +372,7 @@ export class DispositivosServico implements DispositivosServicoContrato {
     entrada: CriarComandoCompartimentoEntrada,
     contexto?: ContextoUsuarioDispositivo
   ): Promise<ComandoDispositivo> {
-    await this.buscarPorId(dispositivoId, contexto);
+    const dispositivo = await this.buscarPorId(dispositivoId, contexto);
     const compartimento = await this.buscarCompartimento(
       dispositivoId,
       compartimentoId
@@ -392,7 +400,54 @@ export class DispositivosServico implements DispositivosServicoContrato {
     compartimento.status = tipo === 'liberar_gaveta' ? 'liberado' : 'bloqueado';
     await this.compartimentosRepositorio.save(compartimento);
 
-    return this.comandosRepositorio.save(comando);
+    const comandoSalvo = await this.comandosRepositorio.save(comando);
+    this.publicarComandoCompartimentoMqtt(
+      dispositivo,
+      compartimento,
+      comandoSalvo,
+      entrada
+    );
+
+    return comandoSalvo;
+  }
+
+  private publicarComandoCompartimentoMqtt(
+    dispositivo: Dispositivo,
+    compartimento: Compartimento,
+    comando: ComandoDispositivo,
+    entrada: CriarComandoCompartimentoEntrada
+  ): void {
+    const acao = comando.tipo === 'liberar_gaveta' ? 'liberar' : 'bloquear';
+    const payload: Record<string, unknown> = {
+      acao,
+      comandoId: comando.id,
+      compartimento: compartimento.numero,
+      medicamentoId: compartimento.medicamentoId,
+      msgId: comando.id,
+    };
+    const motivo = this.validarTextoOpcional('motivo', entrada.motivo, 160);
+    const agendamentoId = this.validarTextoOpcional(
+      'agendamentoId',
+      entrada.agendamentoId,
+      tamanhoMaximoTexto
+    );
+
+    if (motivo) {
+      payload.motivo = motivo;
+    }
+
+    if (agendamentoId) {
+      payload.agendamentoId = agendamentoId;
+    }
+
+    try {
+      this.publicarComandoMqtt(dispositivo.identificador, acao, payload);
+    } catch (erro) {
+      console.warn(
+        `MQTT: comando ${comando.id} salvo, mas nao foi publicado`,
+        erro
+      );
+    }
   }
 
   private async normalizarDispositivo(

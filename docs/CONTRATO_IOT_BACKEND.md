@@ -1,6 +1,6 @@
 # Contrato Backend x IoT
 
-Este documento descreve os endpoints que o firmware pode usar. O codigo C++ do ESP32 fica com o grupo de IoT; aqui ficam apenas os contratos do backend.
+Este documento descreve os contratos que o firmware pode usar. O caminho principal atual e MQTT. Os endpoints REST continuam como fallback para comandos pendentes e registro direto de eventos.
 
 ## Identificacao do Dispositivo
 
@@ -16,6 +16,103 @@ Sempre que o IoT chama uma dessas rotas, o backend atualiza `ultimoSinalEm`. O s
 - `GET /dispositivos/:id/status`
 
 O dispositivo e considerado online quando enviou sinal nos ultimos 5 minutos.
+
+## Contrato MQTT Principal
+
+Todos os topicos seguem o formato:
+
+```text
+pillgator/{identificador}/{categoria}/{tipo}
+```
+
+Exemplo com `PILL-001`:
+
+### Backend -> IoT
+
+O backend publica comandos quando o app solicita liberar/travar uma gaveta.
+
+Topicos:
+
+- `pillgator/PILL-001/comando/liberar`
+- `pillgator/PILL-001/comando/bloquear`
+
+Payload de liberar:
+
+```json
+{
+  "acao": "liberar",
+  "comandoId": "uuid-do-comando",
+  "msgId": "uuid-do-comando",
+  "compartimento": 1,
+  "medicamentoId": "uuid-do-medicamento",
+  "motivo": "Administrar medicamento",
+  "agendamentoId": "uuid-do-agendamento"
+}
+```
+
+Payload de bloquear:
+
+```json
+{
+  "acao": "bloquear",
+  "comandoId": "uuid-do-comando",
+  "msgId": "uuid-do-comando",
+  "compartimento": 1,
+  "motivo": "Travamento manual pelo app"
+}
+```
+
+### IoT -> Backend
+
+O ESP32 ou simulador publica status e eventos.
+
+Topicos:
+
+- `pillgator/PILL-001/status/heartbeat`
+- `pillgator/PILL-001/evento/alerta_emitido`
+- `pillgator/PILL-001/evento/gaveta_aberta`
+- `pillgator/PILL-001/evento/medicamento_retirado`
+- `pillgator/PILL-001/evento/dose_perdida`
+- `pillgator/PILL-001/evento/erro`
+
+Heartbeat:
+
+```json
+{
+  "dispositivoId": "PILL-001",
+  "uptimeSegundos": 120,
+  "gavetas": [
+    { "numero": 1, "status": "bloqueado" }
+  ],
+  "timestamp": "2026-06-01T12:00:00.000Z"
+}
+```
+
+Evento:
+
+```json
+{
+  "dispositivoId": "PILL-001",
+  "compartimento": 1,
+  "tipo": "gaveta_aberta",
+  "timestamp": "2026-06-01T12:00:00.000Z",
+  "msgId": "PILL-001-123-1",
+  "dados": {
+    "origem": "simulador"
+  }
+}
+```
+
+## Simulador Node
+
+Sem hardware, use:
+
+```bash
+cd backend
+npm run iot:simular
+```
+
+O simulador escuta `pillgator/PILL-001/comando/#`, simula a gaveta e publica eventos MQTT de volta para o backend.
 
 ## Buscar Comandos Pendentes
 
@@ -82,7 +179,16 @@ Regras importantes:
 ## Fluxo Sugerido
 
 1. App cria comando para liberar ou travar gaveta.
-2. ESP32 consulta comandos pendentes.
+2. Backend publica comando MQTT para o identificador do dispositivo.
+3. ESP32 ou simulador recebe o comando no topico `comando/#`.
+4. ESP32 ou simulador executa o comando.
+5. ESP32 ou simulador publica heartbeat/eventos MQTT.
+6. Backend salva o evento e atualiza status da gaveta.
+
+Fallback REST:
+
+1. App cria comando para liberar ou travar gaveta.
+2. ESP32 consulta comandos pendentes por REST.
 3. ESP32 executa o comando.
-4. ESP32 registra evento de abertura, fechamento, retirada ou falha.
+4. ESP32 registra evento por REST.
 5. Backend salva o evento e atualiza status da gaveta.

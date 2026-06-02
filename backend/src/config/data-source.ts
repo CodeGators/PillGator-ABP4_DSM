@@ -11,9 +11,12 @@ import { Medicamento } from '../entidades/Medicamento.js';
 import { Notificacao } from '../entidades/Notificacao.js';
 import { Paciente } from '../entidades/Paciente.js';
 import { PacienteResponsavel } from '../entidades/PacienteResponsavel.js';
+import { RecuperacaoSenha } from '../entidades/RecuperacaoSenha.js';
 import { TokenPush } from '../entidades/TokenPush.js';
 import { Usuario } from '../entidades/Usuario.js';
+import { AdicionarFotoPacienteERecuperacaoSenha1840000000000 } from '../database/migrations/1840000000000-AdicionarFotoPacienteERecuperacaoSenha.js';
 import { CriarTabelaComandosDispositivos1820000000000 } from '../database/migrations/1820000000000-CriarTabelaComandosDispositivos.js';
+import { RemoverUnicidadeUsuarioPaciente1830000000000 } from '../database/migrations/1830000000000-RemoverUnicidadeUsuarioPaciente.js';
 import { CriarTabelaTokensPush1810000000000 } from '../database/migrations/1810000000000-CriarTabelaTokensPush.js';
 import { AtualizarMedicamentosPaciente1800000000000 } from '../database/migrations/1800000000000-AtualizarMedicamentosPaciente.js';
 import { CriarTabelaBaseMedicamentos1790000000000 } from '../database/migrations/1790000000000-CriarTabelaBaseMedicamentos.js';
@@ -40,6 +43,7 @@ export const AppDataSource = new DataSource({
     Usuario,
     Paciente,
     PacienteResponsavel,
+    RecuperacaoSenha,
     TokenPush,
     Dispositivo,
     Compartimento,
@@ -58,6 +62,8 @@ export const AppDataSource = new DataSource({
     CriarTabelaBaseMedicamentos1790000000000,
     AtualizarMedicamentosPaciente1800000000000,
     CriarTabelaTokensPush1810000000000,
-    CriarTabelaComandosDispositivos1820000000000
+    CriarTabelaComandosDispositivos1820000000000,
+    RemoverUnicidadeUsuarioPaciente1830000000000,
+    AdicionarFotoPacienteERecuperacaoSenha1840000000000
   ]
 });

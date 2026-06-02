@@ -2,6 +2,8 @@ import type { Request, RequestHandler, Response } from 'express';
 
 import { ErroHttp } from '../../erros/ErroHttp.js';
 import type { RequestAutenticada } from '../../middlewares/autenticacao.js';
+import { formatarDataParaBr } from '../../utils/datas.js';
+import type { AgendamentoMedicamento } from '../../entidades/AgendamentoMedicamento.js';
 import type {
   AgendamentosServicoContrato,
   ContextoUsuarioAgendamento,
@@ -18,7 +20,9 @@ export class AgendamentosControlador {
       this.obterContexto(req)
     );
 
-    res.status(200).json(agendamentos);
+    res.status(200).json(
+      agendamentos.map((agendamento) => this.mapearAgendamento(agendamento))
+    );
   };
 
   public listarProximasAdministracoes: RequestHandler = async (
@@ -39,7 +43,7 @@ export class AgendamentosControlador {
       this.obterContexto(req)
     );
 
-    res.status(200).json(agendamento);
+    res.status(200).json(this.mapearAgendamento(agendamento));
   };
 
   public criar: RequestHandler = async (req: Request, res: Response) => {
@@ -48,7 +52,7 @@ export class AgendamentosControlador {
       this.obterContexto(req)
     );
 
-    res.status(201).json(agendamento);
+    res.status(201).json(this.mapearAgendamento(agendamento));
   };
 
   public atualizar: RequestHandler = async (req: Request, res: Response) => {
@@ -58,7 +62,7 @@ export class AgendamentosControlador {
       this.obterContexto(req)
     );
 
-    res.status(200).json(agendamento);
+    res.status(200).json(this.mapearAgendamento(agendamento));
   };
 
   public remover: RequestHandler = async (req: Request, res: Response) => {
@@ -121,5 +125,13 @@ export class AgendamentosControlador {
     }
 
     return id;
+  }
+
+  private mapearAgendamento(agendamento: AgendamentoMedicamento) {
+    return {
+      ...agendamento,
+      inicioEm: formatarDataParaBr(agendamento.inicioEm),
+      fimEm: formatarDataParaBr(agendamento.fimEm)
+    };
   }
 }
