@@ -6,6 +6,8 @@ import {
   UpdateDateColumn
 } from 'typeorm';
 
+import { formatarDataParaBr } from '../utils/datas.js';
+
 export type TipoUsuario = 'responsavel' | 'administrador';
 
 @Entity('usuarios')
@@ -70,6 +72,9 @@ export class Usuario {
     const { senhaHash: _senhaHash, ...usuarioSemSenha } = this;
     void _senhaHash;
 
-    return usuarioSemSenha;
+    return {
+      ...usuarioSemSenha,
+      dataNascimento: formatarDataParaBr(this.dataNascimento)
+    };
   }
 }

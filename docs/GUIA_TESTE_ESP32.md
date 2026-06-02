@@ -118,7 +118,57 @@ MQTT: heartbeat enviado
 
 Se o ESP32 nao estiver disponivel, voce pode simular eventos usando qualquer cliente MQTT.
 
-### 4.1 Usando MQTT Explorer (interface grafica)
+Para o fluxo recomendado do projeto, usando um simulador Node que recebe comandos do app e publica eventos como se fosse o ESP32, siga o checklist:
+
+- `docs/CHECKLIST_IOT_SIMULADOR_MQTT.md`
+
+Esse simulador permite testar o caminho completo `app -> backend -> MQTT -> IoT simulado -> MQTT -> backend`. Quando for necessario validar mais perto do firmware real, o mesmo checklist tambem descreve o nivel opcional de simulacao do codigo C/C++.
+
+### 4.1 Usando simulador Node recomendado
+
+1. Configure o `.env` do backend com as credenciais MQTT:
+   ```env
+   MQTT_BROKER_URL=mqtts://SEU_CLUSTER.s1.eu.hivemq.cloud:8883
+   MQTT_USERNAME=pillgator-backend
+   MQTT_PASSWORD=SENHA_BACKEND
+   MQTT_ESP32_USERNAME=pillgator-esp32
+   MQTT_ESP32_PASSWORD=SENHA_ESP32
+   SIMULADOR_DEVICE_ID=PILL-001
+   SIMULADOR_GAVETAS=3
+   ```
+2. Suba o backend:
+   ```bash
+   cd backend
+   npm run dev
+   ```
+3. Em outro terminal, suba o simulador:
+   ```bash
+   cd backend
+   npm run iot:simular
+   ```
+4. O simulador deve mostrar:
+   ```text
+   SIMULADOR: conectado ao broker ...
+   SIMULADOR: escutando pillgator/PILL-001/comando/#
+   SIMULADOR: publicado pillgator/PILL-001/status/heartbeat
+   ```
+5. No app mobile, abra a tela `Gavetas` e clique em `Liberar`.
+6. O terminal do simulador deve mostrar o comando recebido e publicar eventos como:
+   - `alerta_emitido`
+   - `gaveta_aberta`
+   - `medicamento_retirado`
+
+Comandos manuais no terminal do simulador:
+
+```text
+abrir 1
+retirar 1
+perdida 1
+erro 1
+status
+```
+
+### 4.2 Usando MQTT Explorer (interface grafica)
 
 1. Baixe: https://mqtt-explorer.com/
 2. Conecte ao HiveMQ Cloud:
@@ -141,7 +191,7 @@ Se o ESP32 nao estiver disponivel, voce pode simular eventos usando qualquer cli
      ```
 4. Verifique nos logs do Railway se apareceu o evento
 
-### 4.2 Usando mosquitto_pub (linha de comando)
+### 4.3 Usando mosquitto_pub (linha de comando)
 
 ```bash
 mosquitto_pub \

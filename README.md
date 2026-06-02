@@ -157,6 +157,20 @@ npm run migration:revert
 npm run db:check
 ```
 
+### Deploy em nuvem
+
+O caminho recomendado para apresentacao e testes remotos e:
+
+- Backend: Railway
+- Banco: Neon PostgreSQL
+- MQTT: HiveMQ Cloud
+
+Passo a passo:
+
+```text
+docs/GUIA_DEPLOY_NUVEM.md
+```
+
 ### Banco de dados
 
 Configuracao local padrao:

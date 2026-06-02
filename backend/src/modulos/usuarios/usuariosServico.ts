@@ -3,6 +3,7 @@ import type { FindOptionsWhere, Repository } from 'typeorm';
 import { AppDataSource } from '../../config/data-source.js';
 import { Usuario, type TipoUsuario } from '../../entidades/Usuario.js';
 import { ErroHttp } from '../../erros/ErroHttp.js';
+import { normalizarDataParaBanco } from '../../utils/datas.js';
 import { gerarHashSenha, validarSenha } from '../autenticacao/senhas.js';
 import type {
   AtualizarUsuarioEntrada,
@@ -14,7 +15,6 @@ import type {
 
 const tiposCadastroUsuario: TipoUsuario[] = ['responsavel', 'administrador'];
 const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const regexData = /^\d{4}-\d{2}-\d{2}$/;
 
 export class UsuariosServico implements UsuariosServicoContrato {
   constructor(private readonly usuariosRepositorio: Repository<Usuario>) {}
@@ -297,27 +297,20 @@ export class UsuariosServico implements UsuariosServicoContrato {
   }
 
   private validarDataNascimento(valor: unknown): string {
-    if (typeof valor !== 'string' || !regexData.test(valor)) {
-      throw new ErroHttp(
-        400,
-        'Campo dataNascimento deve estar no formato YYYY-MM-DD'
-      );
-    }
-
-    const data = new Date(`${valor}T00:00:00.000Z`);
-
-    if (Number.isNaN(data.getTime()) || valor !== data.toISOString().slice(0, 10)) {
-      throw new ErroHttp(400, 'Campo dataNascimento deve ser uma data valida');
-    }
+    const dataNascimento = normalizarDataParaBanco('dataNascimento', valor);
 
     const hoje = new Date();
     const hojeIso = hoje.toISOString().slice(0, 10);
 
-    if (valor > hojeIso) {
+    if (!dataNascimento) {
+      throw new ErroHttp(400, 'Campo dataNascimento e obrigatorio');
+    }
+
+    if (dataNascimento > hojeIso) {
       throw new ErroHttp(400, 'Campo dataNascimento nao pode ser futuro');
     }
 
-    return valor;
+    return dataNascimento;
   }
 
   public validarTipo(valor: unknown): TipoUsuario {

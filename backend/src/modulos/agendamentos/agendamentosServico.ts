@@ -5,6 +5,10 @@ import { AgendamentoMedicamento } from '../../entidades/AgendamentoMedicamento.j
 import { Medicamento } from '../../entidades/Medicamento.js';
 import { PacienteResponsavel } from '../../entidades/PacienteResponsavel.js';
 import { ErroHttp } from '../../erros/ErroHttp.js';
+import {
+  formatarDataHoraParaBr,
+  normalizarDataParaBanco
+} from '../../utils/datas.js';
 import type {
   AgendamentoNormalizado,
   AgendamentosServicoContrato,
@@ -18,7 +22,6 @@ import type {
 
 const diasSemanaPadrao = [0, 1, 2, 3, 4, 5, 6];
 const regexHorario = /^([01]\d|2[0-3]):[0-5]\d$/;
-const regexData = /^\d{4}-\d{2}-\d{2}$/;
 const tamanhoMaximoCuidados = 1000;
 
 export class AgendamentosServico implements AgendamentosServicoContrato {
@@ -168,11 +171,15 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
     );
     const inicioEm = this.validarDataOpcional(
       'inicioEm',
-      entrada.inicioEm ?? agendamentoAtual?.inicioEm ?? null
+      entrada.inicioEm === undefined
+        ? agendamentoAtual?.inicioEm ?? null
+        : entrada.inicioEm
     );
     const fimEm = this.validarDataOpcional(
       'fimEm',
-      entrada.fimEm ?? agendamentoAtual?.fimEm ?? null
+      entrada.fimEm === undefined
+        ? agendamentoAtual?.fimEm ?? null
+        : entrada.fimEm
     );
 
     this.validarPeriodo(inicioEm, fimEm);
@@ -196,7 +203,9 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
       toleranciaMinutos,
       cuidados: this.validarTextoOpcional(
         'cuidados',
-        entrada.cuidados ?? agendamentoAtual?.cuidados ?? null,
+        entrada.cuidados === undefined
+          ? agendamentoAtual?.cuidados ?? null
+          : entrada.cuidados,
         tamanhoMaximoCuidados
       ),
       ativo: this.validarBooleano(
@@ -378,7 +387,7 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
       medicamentoId: agendamento.medicamentoId,
       pacienteId: medicamento.pacienteId!,
       medicamentoNome: medicamento.nome,
-      horarioPrevisto: `${data}T${horario}:00`,
+      horarioPrevisto: formatarDataHoraParaBr(`${data}T${horario}:00`),
       tipo: agendamento.tipo,
       cuidados: agendamento.cuidados
     }));
@@ -471,21 +480,7 @@ export class AgendamentosServico implements AgendamentosServicoContrato {
   }
 
   private validarDataOpcional(campo: string, valor: unknown): string | null {
-    if (valor === undefined || valor === null || valor === '') {
-      return null;
-    }
-
-    if (typeof valor !== 'string' || !regexData.test(valor)) {
-      throw new ErroHttp(400, `Campo ${campo} deve estar no formato YYYY-MM-DD`);
-    }
-
-    const data = new Date(`${valor}T00:00:00.000Z`);
-
-    if (Number.isNaN(data.getTime()) || valor !== data.toISOString().slice(0, 10)) {
-      throw new ErroHttp(400, `Campo ${campo} deve ser uma data valida`);
-    }
-
-    return valor;
+    return normalizarDataParaBanco(campo, valor, { aceitarHora: true });
   }
 
   private validarPeriodo(inicioEm: string | null, fimEm: string | null): void {

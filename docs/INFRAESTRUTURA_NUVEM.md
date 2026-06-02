@@ -23,8 +23,18 @@ Este documento descreve a infraestrutura cloud do PillGator, o protocolo de comu
 | Servico | Funcao | URL/Acesso | Plano |
 |---------|--------|------------|-------|
 | **Neon** | Banco PostgreSQL | Painel: neon.tech | Free |
-| **Railway** | Hospedagem backend | Painel: railway.app | Starter (gratis) |
+| **Railway** | Hospedagem backend | Painel: railway.app | Free/Trial com credito limitado |
 | **HiveMQ Cloud** | Broker MQTT (IoT) | Painel: hivemq.com | Serverless Free |
+
+Para o passo a passo de deploy, use:
+
+- `docs/GUIA_DEPLOY_NUVEM.md`
+
+Plano B sem custo se o Railway limitar credito:
+
+- manter Neon e HiveMQ na nuvem;
+- rodar o backend no notebook;
+- apontar o mobile para `http://IP_DO_NOTEBOOK:3000`.
 
 ## Variaveis de Ambiente (Railway)
 
@@ -158,9 +168,47 @@ backend/src/modulos/mqtt/
   mqttCliente.ts        — Conexao com o broker, pub/sub, reconexao automatica
   mqttManipuladores.ts  — Processa eventos recebidos e salva no banco
   mqttTopicos.ts        — Constantes dos topicos MQTT
+  simuladorEsp32.ts     — Helpers testaveis do simulador de ESP32
+
+backend/src/scripts/
+  simular-esp32.ts      — Simulador Node do ESP32 para testes sem hardware
 ```
 
 O MQTT e iniciado automaticamente em `server.ts` apos o banco conectar. Se o broker estiver fora do ar, o backend continua funcionando normalmente (apenas sem IoT).
+
+## Simulador sem Hardware
+
+Enquanto o ESP32 e as gavetas fisicas nao estiverem disponiveis, use o simulador Node:
+
+```bash
+cd backend
+npm run iot:simular
+```
+
+Esse simulador assina:
+
+```text
+pillgator/PILL-001/comando/#
+```
+
+E publica:
+
+```text
+pillgator/PILL-001/status/heartbeat
+pillgator/PILL-001/evento/alerta_emitido
+pillgator/PILL-001/evento/gaveta_aberta
+pillgator/PILL-001/evento/medicamento_retirado
+pillgator/PILL-001/evento/dose_perdida
+pillgator/PILL-001/evento/erro
+```
+
+Com isso, da para testar o fluxo completo:
+
+```text
+Mobile -> Backend REST -> MQTT -> Simulador IoT -> MQTT -> Backend -> Banco
+```
+
+Quando o hardware chegar, o simulador deve ser desligado e o ESP32 real deve usar o mesmo `DEVICE_ID`, os mesmos topicos e as mesmas credenciais MQTT do usuario do dispositivo.
 
 ## Resiliencia
 
@@ -174,28 +222,33 @@ O MQTT e iniciado automaticamente em `server.ts` apos o banco conectar. Se o bro
 
 ## Deploy
 
-O deploy e automatico. Ao fazer push na branch `main` do fork no GitHub, o Railway detecta e faz redeploy.
+O deploy pode ser automatico pelo Railway ao conectar o repositorio no GitHub. Configure o servico com:
 
-Repositorio monitorado pelo Railway:
+- Root Directory: `backend`
+- Build Command: `npm run build`
+- Start Command: `npm start`
 
-```
-https://github.com/GustavoReis-xml/PillGator-ABP4_DSM
-Branch: main
-Root Directory: backend
-```
-
-### Como atualizar o deploy
+O comando `npm start` executa:
 
 ```bash
-# 1. Commitar suas mudancas
-git add .
-git commit -m "descricao da mudanca"
-
-# 2. Push para o fork (da branch local develop para main do fork)
-git push fork develop:main
+node dist/src/server.js
 ```
 
-O Railway faz o resto sozinho.
+### Como rodar migrations na nuvem
+
+Depois do build/deploy, rode no Railway:
+
+```bash
+npm run migration:run:dist
+```
+
+Depois valide:
+
+```bash
+npm run db:check
+```
+
+Mais detalhes estao no guia `docs/GUIA_DEPLOY_NUVEM.md`.
 
 ## Rotas da API
 

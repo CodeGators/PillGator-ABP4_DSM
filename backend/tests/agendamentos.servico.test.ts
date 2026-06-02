@@ -207,6 +207,24 @@ describe('AgendamentosServico', () => {
     });
   });
 
+  it('deve aceitar datas em formato brasileiro no agendamento', async () => {
+    const { servico } = criarServico();
+
+    const agendamento = await servico.criar({
+      medicamentoId: 'medicamento-1',
+      tipo: 'horarios_fixos',
+      diasSemana: [5],
+      horarios: ['08:00'],
+      inicioEm: '01/05/2026 08:00',
+      fimEm: '20/05/2026'
+    });
+
+    expect(agendamento).toMatchObject({
+      inicioEm: '2026-05-01',
+      fimEm: '2026-05-20'
+    });
+  });
+
   it('deve criar agendamento de 8 em 8 horas', async () => {
     const { servico } = criarServico();
 
@@ -347,6 +365,35 @@ describe('AgendamentosServico', () => {
     });
   });
 
+  it('deve permitir limpar fim e cuidados do agendamento', async () => {
+    const { agendamentosRepositorio, servico } = criarServico();
+    const agendamento = agendamentosRepositorio.create({
+      id: 'agendamento-1',
+      medicamentoId: 'medicamento-1',
+      tipo: 'horarios_fixos',
+      diasSemana: [1, 2, 3, 4, 5],
+      horarios: ['08:00'],
+      intervaloHoras: null,
+      horarioInicio: null,
+      inicioEm: '2026-05-01',
+      fimEm: '2026-05-20',
+      toleranciaMinutos: 30,
+      cuidados: 'Tomar com agua'
+    });
+    await agendamentosRepositorio.save(agendamento);
+
+    const atualizado = await servico.atualizar('agendamento-1', {
+      fimEm: null,
+      cuidados: null
+    });
+
+    expect(atualizado).toMatchObject({
+      inicioEm: '2026-05-01',
+      fimEm: null,
+      cuidados: null
+    });
+  });
+
   it('deve listar proximas administracoes do dia', async () => {
     const { agendamentosRepositorio, servico } = criarServico();
     await agendamentosRepositorio.save(
@@ -376,7 +423,7 @@ describe('AgendamentosServico', () => {
         medicamentoId: 'medicamento-1',
         pacienteId: 'paciente-1',
         medicamentoNome: 'Losartana',
-        horarioPrevisto: '2026-05-01T08:00:00',
+        horarioPrevisto: '01/05/2026 08:00',
         tipo: 'horarios_fixos',
         cuidados: 'Tomar com agua'
       },
@@ -385,7 +432,7 @@ describe('AgendamentosServico', () => {
         medicamentoId: 'medicamento-1',
         pacienteId: 'paciente-1',
         medicamentoNome: 'Losartana',
-        horarioPrevisto: '2026-05-01T20:00:00',
+        horarioPrevisto: '01/05/2026 20:00',
         tipo: 'horarios_fixos',
         cuidados: 'Tomar com agua'
       }

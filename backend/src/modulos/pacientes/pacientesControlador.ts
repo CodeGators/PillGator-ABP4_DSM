@@ -2,6 +2,8 @@ import type { Request, RequestHandler, Response } from 'express';
 
 import { ErroHttp } from '../../erros/ErroHttp.js';
 import type { RequestAutenticada } from '../../middlewares/autenticacao.js';
+import { formatarDataParaBr } from '../../utils/datas.js';
+import type { Paciente } from '../../entidades/Paciente.js';
 import type {
   ContextoUsuarioPaciente,
   PacientesServicoContrato
@@ -13,13 +15,13 @@ export class PacientesControlador {
   public listar: RequestHandler = async (req: Request, res: Response) => {
     const pacientes = await this.servico.listar(this.obterContexto(req));
 
-    res.status(200).json(pacientes);
+    res.status(200).json(pacientes.map((paciente) => this.mapearPaciente(paciente)));
   };
 
   public listarMeus: RequestHandler = async (req: Request, res: Response) => {
     const pacientes = await this.servico.listarMeus(this.obterContexto(req));
 
-    res.status(200).json(pacientes);
+    res.status(200).json(pacientes.map((paciente) => this.mapearPaciente(paciente)));
   };
 
   public buscarPorId: RequestHandler = async (req: Request, res: Response) => {
@@ -28,13 +30,13 @@ export class PacientesControlador {
       this.obterContexto(req)
     );
 
-    res.status(200).json(paciente);
+    res.status(200).json(this.mapearPaciente(paciente));
   };
 
   public criar: RequestHandler = async (req: Request, res: Response) => {
     const paciente = await this.servico.criar(req.body, this.obterContexto(req));
 
-    res.status(201).json(paciente);
+    res.status(201).json(this.mapearPaciente(paciente));
   };
 
   public atualizar: RequestHandler = async (req: Request, res: Response) => {
@@ -44,7 +46,7 @@ export class PacientesControlador {
       this.obterContexto(req)
     );
 
-    res.status(200).json(paciente);
+    res.status(200).json(this.mapearPaciente(paciente));
   };
 
   public remover: RequestHandler = async (req: Request, res: Response) => {
@@ -122,6 +124,13 @@ export class PacientesControlador {
     return {
       id: usuario.sub,
       tipo: usuario.tipo
+    };
+  }
+
+  private mapearPaciente(paciente: Paciente) {
+    return {
+      ...paciente,
+      dataNascimento: formatarDataParaBr(paciente.dataNascimento)
     };
   }
 }

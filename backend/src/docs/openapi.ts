@@ -143,6 +143,7 @@ export const openApiDocument = {
                     id: '9b8f2c60-1f6f-4f23-9f5a-9bb2b1110001',
                     nome: 'Maria Responsavel',
                     email: 'maria@example.com',
+                    dataNascimento: '20/05/1990',
                     tipo: 'responsavel'
                   }
                 }
@@ -210,7 +211,7 @@ export const openApiDocument = {
                     cpf: '935.411.347-80',
                     email: 'maria@example.com',
                     telefone: '11999999999',
-                    dataNascimento: '1990-05-20',
+                    dataNascimento: '20/05/1990',
                     enderecoRua: 'Rua das Flores',
                     enderecoEstado: 'SP',
                     enderecoCidade: 'Jacarei',
@@ -229,7 +230,7 @@ export const openApiDocument = {
                     cpf: '529.982.247-25',
                     email: 'admin@example.com',
                     telefone: '11999999999',
-                    dataNascimento: '1988-02-10',
+                    dataNascimento: '10/02/1988',
                     enderecoRua: 'Rua Central',
                     enderecoEstado: 'SP',
                     enderecoCidade: 'Jacarei',
@@ -358,7 +359,7 @@ export const openApiDocument = {
                   summary: 'Paciente acompanhado pelo responsavel',
                   value: {
                     nome: 'Joao Paciente',
-                    dataNascimento: '1950-01-01',
+                    dataNascimento: '01/01/1950',
                     observacoes: 'Prefere alertas sonoros.'
                   }
                 },
@@ -366,7 +367,7 @@ export const openApiDocument = {
                   summary: 'Responsavel tambem e o paciente',
                   value: {
                     souEuMesmo: true,
-                    dataNascimento: '1980-04-15',
+                    dataNascimento: '15/04/1980',
                     observacoes: 'Responsavel cuida dos proprios medicamentos.'
                   }
                 }
@@ -1407,7 +1408,7 @@ export const openApiDocument = {
                     tipo: 'horarios_fixos',
                     diasSemana: [1, 2, 3, 4, 5],
                     horarios: ['08:00', '20:00'],
-                    inicioEm: '2026-05-12',
+                    inicioEm: '12/05/2026',
                     fimEm: null,
                     toleranciaMinutos: 30,
                     cuidados: 'Nao tomar junto com leite.'
@@ -1423,8 +1424,8 @@ export const openApiDocument = {
                     diasSemana: [0, 1, 2, 3, 4, 5, 6],
                     intervaloHoras: 8,
                     horarioInicio: '06:00',
-                    inicioEm: '2026-05-12',
-                    fimEm: '2026-05-20',
+                    inicioEm: '12/05/2026',
+                    fimEm: '20/05/2026',
                     toleranciaMinutos: 30,
                     cuidados: 'Manter intervalo regular.'
                   }
@@ -1468,9 +1469,9 @@ export const openApiDocument = {
             in: 'query',
             required: false,
             description:
-              'Opcional. Data no formato YYYY-MM-DD. Se nao enviar, o backend usa a data atual.',
-            schema: { type: 'string', format: 'date' },
-            example: '2026-05-12'
+              'Opcional. Data no formato DD/MM/AAAA. Se nao enviar, o backend usa a data atual.',
+            schema: { type: 'string' },
+            example: '12/05/2026'
           }
         ],
         responses: {
@@ -1961,6 +1962,11 @@ export const openApiDocument = {
               id: { type: 'string', format: 'uuid' },
               nome: { type: 'string', example: 'Admin' },
               email: { type: 'string', format: 'email' },
+              dataNascimento: {
+                type: 'string',
+                nullable: true,
+                example: '20/05/1990'
+              },
               tipo: {
                 type: 'string',
                 enum: ['responsavel', 'administrador']
@@ -2005,9 +2011,8 @@ export const openApiDocument = {
           dataNascimento: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Data de nascimento no formato YYYY-MM-DD.',
-            example: '1990-05-20'
+            description: 'Data de nascimento no formato DD/MM/AAAA.',
+            example: '20/05/1990'
           },
           enderecoRua: {
             type: 'string',
@@ -2099,9 +2104,8 @@ export const openApiDocument = {
           },
           dataNascimento: {
             type: 'string',
-            format: 'date',
-            description: 'Obrigatorio. Formato YYYY-MM-DD.',
-            example: '1990-05-20'
+            description: 'Obrigatorio. Formato DD/MM/AAAA.',
+            example: '20/05/1990'
           },
           enderecoRua: {
             type: 'string',
@@ -2188,8 +2192,7 @@ export const openApiDocument = {
           },
           dataNascimento: {
             type: 'string',
-            format: 'date',
-            description: 'Opcional. Nova data de nascimento.'
+            description: 'Opcional. Nova data de nascimento no formato DD/MM/AAAA.'
           },
           enderecoRua: {
             type: 'string',
@@ -2269,8 +2272,7 @@ export const openApiDocument = {
           dataNascimento: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Data de nascimento no formato YYYY-MM-DD.'
+            description: 'Data de nascimento no formato DD/MM/AAAA.'
           },
           observacoes: {
             type: 'string',
@@ -2296,9 +2298,8 @@ export const openApiDocument = {
           dataNascimento: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Opcional. Formato YYYY-MM-DD.',
-            example: '1950-01-01'
+            description: 'Opcional. Formato DD/MM/AAAA.',
+            example: '01/01/1950'
           },
           observacoes: {
             type: 'string',
@@ -2325,8 +2326,7 @@ export const openApiDocument = {
           dataNascimento: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Opcional. Formato YYYY-MM-DD.'
+            description: 'Opcional. Formato DD/MM/AAAA.'
           },
           observacoes: {
             type: 'string',
@@ -3297,15 +3297,13 @@ export const openApiDocument = {
           inicioEm: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Data de inicio do tratamento no formato YYYY-MM-DD.'
+            description: 'Data de inicio do tratamento no formato DD/MM/AAAA.'
           },
           fimEm: {
             type: 'string',
             nullable: true,
-            format: 'date',
             description:
-              'Data final do tratamento no formato YYYY-MM-DD. Pode ser null para tratamento sem fim definido.'
+              'Data final do tratamento no formato DD/MM/AAAA. Pode ser null para tratamento sem fim definido.'
           },
           toleranciaMinutos: {
             type: 'integer',
@@ -3351,8 +3349,8 @@ export const openApiDocument = {
           horarioPrevisto: {
             type: 'string',
             description:
-              'Data e horario previstos no formato YYYY-MM-DDTHH:mm:ss.',
-            example: '2026-05-12T08:00:00'
+              'Data e horario previstos no formato DD/MM/AAAA HH:mm.',
+            example: '12/05/2026 08:00'
           },
           tipo: {
             type: 'string',
@@ -3410,14 +3408,12 @@ export const openApiDocument = {
           inicioEm: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Opcional. Data de inicio no formato YYYY-MM-DD.'
+            description: 'Opcional. Data de inicio no formato DD/MM/AAAA ou DD/MM/AAAA HH:mm.'
           },
           fimEm: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Opcional. Data final no formato YYYY-MM-DD.'
+            description: 'Opcional. Data final no formato DD/MM/AAAA ou DD/MM/AAAA HH:mm.'
           },
           toleranciaMinutos: {
             type: 'integer',
@@ -3477,14 +3473,12 @@ export const openApiDocument = {
           inicioEm: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Opcional. Nova data de inicio no formato YYYY-MM-DD.'
+            description: 'Opcional. Nova data de inicio no formato DD/MM/AAAA ou DD/MM/AAAA HH:mm.'
           },
           fimEm: {
             type: 'string',
             nullable: true,
-            format: 'date',
-            description: 'Opcional. Nova data final no formato YYYY-MM-DD.'
+            description: 'Opcional. Nova data final no formato DD/MM/AAAA ou DD/MM/AAAA HH:mm.'
           },
           toleranciaMinutos: {
             type: 'integer',
