@@ -76,26 +76,88 @@ O sistema registra cada abertura e, caso o paciente esqueça de retirar o reméd
 
 ### Pre-requisitos
 
-- Node.js 20
+- Node.js 20 ou superior
 - npm
-- Docker e Docker Compose
+- Docker e Docker Compose para banco local
+- Expo Go no celular para testar o app em desenvolvimento
+- Conta Expo/EAS apenas se for gerar APK pela nuvem
 
-### Backend com PostgreSQL local
+### Estrutura principal
 
-1. Instale as dependencias do backend:
+```text
+backend/  API Node.js, Express, TypeORM e PostgreSQL
+mobile/   App React Native com Expo
+iot/      Codigo e referencias do ESP32
+docs/     Guias de teste, deploy, IoT e checklist do frontend
+```
+
+---
+
+## 🌐 Backend Online
+
+O backend esta publicado no Railway e usando banco Neon PostgreSQL.
+
+API publica:
+
+```text
+https://pillgator-abp4dsm-production-072b.up.railway.app
+```
+
+Rotas de verificacao:
+
+```text
+https://pillgator-abp4dsm-production-072b.up.railway.app/saude
+https://pillgator-abp4dsm-production-072b.up.railway.app/health
+```
+
+Swagger:
+
+```text
+https://pillgator-abp4dsm-production-072b.up.railway.app/docs
+```
+
+No Railway, o servico do backend deve estar configurado com:
+
+```text
+Root Directory: /backend
+Build Command: npm run build
+Start Command: npm start
+```
+
+Variaveis obrigatorias no servico do Railway:
+
+```text
+DATABASE_URL=<url do Neon com sslmode=require>
+JWT_SECRET=<segredo forte>
+JWT_EXPIRES_IN=8h
+```
+
+MQTT ainda pode ficar desligado durante testes sem hardware. Nesse caso o backend sobe normalmente e os logs mostram que a conexao MQTT foi pulada.
+
+Guia completo:
+
+```text
+docs/GUIA_DEPLOY_NUVEM.md
+```
+
+---
+
+## 🖥️ Backend Local
+
+1. Instale as dependencias:
 
 ```bash
 cd backend
 npm install
 ```
 
-2. Crie o arquivo de ambiente:
+2. Crie o `.env` local:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Suba o PostgreSQL:
+3. Suba o PostgreSQL local:
 
 ```bash
 cd ..
@@ -109,69 +171,51 @@ cd backend
 npm run migration:run
 ```
 
-5. Verifique se as tabelas esperadas foram criadas:
+5. Confira o banco:
 
 ```bash
 npm run db:check
 ```
 
-6. Inicie a API:
+6. Popule a base de medicamentos, se necessario:
+
+```bash
+npm run base-medicamentos:importar
+```
+
+7. Inicie a API local:
 
 ```bash
 npm run dev
 ```
 
-A API ficara disponivel em:
+API local:
 
 ```text
 http://localhost:3000
 ```
 
-Rotas de saude:
+Rotas locais:
 
 ```text
-GET http://localhost:3000/health
-GET http://localhost:3000/saude
-```
-
-Documentacao interativa da API:
-
-```text
+http://localhost:3000/saude
+http://localhost:3000/health
 http://localhost:3000/docs
 ```
 
-JSON OpenAPI:
-
-```text
-http://localhost:3000/docs.json
-```
-
-### Comandos uteis do backend
+Comandos uteis do backend:
 
 ```bash
 npm run lint
 npm test
 npm run build
 npm run migration:run
+npm run migration:run:dist
 npm run migration:revert
 npm run db:check
+npm run base-medicamentos:importar
+npm run iot:simular
 ```
-
-### Deploy em nuvem
-
-O caminho recomendado para apresentacao e testes remotos e:
-
-- Backend: Railway
-- Banco: Neon PostgreSQL
-- MQTT: HiveMQ Cloud
-
-Passo a passo:
-
-```text
-docs/GUIA_DEPLOY_NUVEM.md
-```
-
-### Banco de dados
 
 Configuracao local padrao:
 
@@ -184,7 +228,133 @@ DATABASE_URL=postgresql://abp4user:abp4pass@localhost:5432/abp4
 
 As credenciais acima sao apenas para desenvolvimento local. Arquivos `.env` reais nao devem ser commitados.
 
-Se o comando `docker compose` nao estiver disponivel, instale o Docker antes de rodar as migrations. Sem o PostgreSQL ativo, o backend nao conseguira iniciar porque ele valida a conexao com o banco na subida.
+---
+
+## 📱 App Mobile
+
+1. Instale as dependencias:
+
+```bash
+cd mobile
+npm install
+```
+
+2. Para testar no celular com Expo Go apontando para o backend online:
+
+```bash
+npm run start:online
+```
+
+3. Para testar no navegador usando o backend online:
+
+```bash
+npm run web:online
+```
+
+4. Para testar com backend local:
+
+```bash
+npm start
+```
+
+Quando usar backend local no celular, o app tenta descobrir o IP do Expo e acessar `http://IP_DO_NOTEBOOK:3000`. O celular e o notebook precisam estar na mesma rede.
+
+Scripts principais do mobile:
+
+```bash
+npm start
+npm run start:online
+npm run android
+npm run android:online
+npm run web
+npm run web:online
+npm test
+```
+
+---
+
+## 📦 APK
+
+O projeto possui um perfil EAS `preview` em `mobile/eas.json` para gerar APK usando o backend online.
+
+Comando:
+
+```bash
+cd mobile
+npm run apk:online
+```
+
+Esse comando usa:
+
+```text
+EXPO_PUBLIC_API_URL=https://pillgator-abp4dsm-production-072b.up.railway.app
+```
+
+Para build local ou customizada, tambem e possivel definir a variavel manualmente:
+
+```bash
+EXPO_PUBLIC_API_URL=https://pillgator-abp4dsm-production-072b.up.railway.app npx expo start --lan
+```
+
+---
+
+## 🔌 IoT e MQTT
+
+O backend ja possui contrato para comandos de gaveta, publicacao MQTT e simulador ESP32.
+
+Sem hardware, use:
+
+```bash
+cd backend
+npm run iot:simular
+```
+
+Com hardware, siga:
+
+```text
+docs/GUIA_TESTE_ESP32.md
+docs/CHECKLIST_IOT_SIMULADOR_MQTT.md
+docs/CONTRATO_IOT_BACKEND.md
+```
+
+Fluxo esperado:
+
+```text
+App Mobile -> Backend Railway -> MQTT -> ESP32 ou simulador -> Evento de retorno
+```
+
+---
+
+## ✅ Validacao Recomendada
+
+Backend:
+
+```bash
+cd backend
+npm run build
+npm test -- --runInBand
+```
+
+Mobile:
+
+```bash
+cd mobile
+npx tsc --noEmit
+npm test -- --watchAll=false
+```
+
+Fluxo manual minimo:
+
+```text
+1. Abrir /saude da API online
+2. Rodar npm run start:online no mobile
+3. Criar usuario
+4. Fazer login
+5. Criar paciente
+6. Criar medicamento
+7. Criar agendamento
+8. Conferir dashboard, agenda e gavetas
+```
 
 ---
 

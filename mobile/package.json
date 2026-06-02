@@ -4,9 +4,13 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:online": "EXPO_PUBLIC_API_URL=https://pillgator-abp4dsm-production-072b.up.railway.app expo start --lan",
     "android": "expo start --android",
+    "android:online": "EXPO_PUBLIC_API_URL=https://pillgator-abp4dsm-production-072b.up.railway.app expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "web:online": "EXPO_PUBLIC_API_URL=https://pillgator-abp4dsm-production-072b.up.railway.app expo start --web",
+    "apk:online": "EXPO_PUBLIC_API_URL=https://pillgator-abp4dsm-production-072b.up.railway.app npx eas-cli build --platform android --profile preview",
     "test": "jest --runInBand --forceExit"
   },
   "dependencies": {
