@@ -12,6 +12,7 @@ const mapaEventos: Record<string, TipoEventoMedicamento> = {
   medicamento_retirado: 'medicamento_retirado',
   dose_perdida: 'atraso',
   alerta_emitido: 'alerta_emitido',
+  alerta_gaveta_aberta: 'alerta_emitido',
   erro: 'falha'
 };
 
