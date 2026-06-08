@@ -8,6 +8,10 @@ export const openApiDocument = {
   },
   servers: [
     {
+      url: '/',
+      description: 'Ambiente atual (Nuvem ou Local)'
+    },
+    {
       url: 'http://localhost:3000',
       description: 'Ambiente local de desenvolvimento'
     }
