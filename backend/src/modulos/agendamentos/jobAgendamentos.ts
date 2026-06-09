@@ -179,11 +179,7 @@ async function verificarAgendamentos(): Promise<void> {
         acao: 'liberar',
         comandoId: comando.id,
         msgId: comando.id,
-        compartimento: compartimento.numero,
-        medicamentoId: agendamento.medicamentoId,
-        medicamentoNome: agendamento.medicamento?.nome ?? 'Medicamento',
-        motivo: 'Horario do agendamento',
-        agendamentoId: agendamento.id
+        compartimento: compartimento.numero
       });
       resumo.enviados += 1;
     } else {
