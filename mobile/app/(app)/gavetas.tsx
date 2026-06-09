@@ -66,6 +66,7 @@ export default function GavetasScreen() {
   const compartimentosQuery = useQuery({
     queryKey: ['compartimentos', dispositivoSelecionadoId],
     enabled: Boolean(dispositivoSelecionadoId),
+    refetchInterval: 10000,
     queryFn: () => dispositivosServico.listarCompartimentos(dispositivoSelecionadoId!),
   });
 

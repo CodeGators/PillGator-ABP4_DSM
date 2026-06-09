@@ -1,6 +1,8 @@
 import { AppDataSource } from '../../config/data-source.js';
+import { Compartimento } from '../../entidades/Compartimento.js';
 import { Dispositivo } from '../../entidades/Dispositivo.js';
 import { EventoMedicamento } from '../../entidades/EventoMedicamento.js';
+import type { StatusCompartimento } from '../../entidades/Compartimento.js';
 import type {
   OrigemEventoMedicamento,
   TipoEventoMedicamento
@@ -9,12 +11,19 @@ import type {
 // Mapeamento de sufixo do topico para tipo de evento no banco
 const mapaEventos: Record<string, TipoEventoMedicamento> = {
   gaveta_aberta: 'compartimento_aberto',
+  gaveta_fechada: 'compartimento_fechado',
   medicamento_retirado: 'medicamento_retirado',
   dose_perdida: 'atraso',
   alerta_emitido: 'alerta_emitido',
   alerta_gaveta_aberta: 'alerta_emitido',
   erro: 'falha'
 };
+const statusCompartimentoValidos: StatusCompartimento[] = [
+  'bloqueado',
+  'liberado',
+  'aberto',
+  'erro'
+];
 
 interface PayloadEvento {
   dispositivoId?: string;
@@ -75,6 +84,10 @@ async function processarEvento(
   }
 
   const eventosRepo = AppDataSource.getRepository(EventoMedicamento);
+  const dispositivosRepo = AppDataSource.getRepository(Dispositivo);
+  const dispositivo = await dispositivosRepo.findOne({
+    where: { identificador: dispositivoIdentificador, ativo: true }
+  });
 
   // Idempotencia: se ja processou este msgId, ignora
   if (dados.msgId) {
@@ -101,6 +114,11 @@ async function processarEvento(
   });
 
   await eventosRepo.save(evento);
+  await atualizarCompartimentoPorEvento(
+    dispositivo?.id ?? null,
+    dados.compartimento,
+    tipoEvento
+  );
   console.log(`MQTT: evento ${tipoEvento} salvo para dispositivo ${dispositivoIdentificador}`);
 }
 
@@ -121,5 +139,89 @@ async function processarHeartbeat(
 
   dispositivo.ultimoSinalEm = dados.timestamp ? new Date(dados.timestamp) : new Date();
   await dispositivosRepo.save(dispositivo);
+  await atualizarCompartimentosPorHeartbeat(dispositivo.id, dados);
   console.log(`MQTT: heartbeat atualizado para ${dispositivoIdentificador}`);
+}
+
+async function atualizarCompartimentoPorEvento(
+  dispositivoId: string | null,
+  numeroCompartimento: number | undefined,
+  tipoEvento: TipoEventoMedicamento
+): Promise<void> {
+  if (!dispositivoId || !numeroCompartimento) {
+    return;
+  }
+
+  const compartimentosRepo = AppDataSource.getRepository(Compartimento);
+  const compartimento = await compartimentosRepo.findOne({
+    where: { dispositivoId, numero: numeroCompartimento, ativo: true }
+  });
+
+  if (!compartimento) {
+    return;
+  }
+
+  const novoStatus = obterStatusPorEvento(tipoEvento);
+
+  if (!novoStatus || compartimento.status === novoStatus) {
+    return;
+  }
+
+  compartimento.status = novoStatus;
+  await compartimentosRepo.save(compartimento);
+  console.log(
+    `MQTT: gaveta ${numeroCompartimento} atualizada para ${novoStatus} por evento ${tipoEvento}`
+  );
+}
+
+async function atualizarCompartimentosPorHeartbeat(
+  dispositivoId: string,
+  dados: PayloadHeartbeat
+): Promise<void> {
+  if (!dados.gavetas?.length) {
+    return;
+  }
+
+  const compartimentosRepo = AppDataSource.getRepository(Compartimento);
+
+  for (const gaveta of dados.gavetas) {
+    if (!statusCompartimentoValidos.includes(gaveta.status as StatusCompartimento)) {
+      continue;
+    }
+
+    const compartimento = await compartimentosRepo.findOne({
+      where: { dispositivoId, numero: gaveta.numero, ativo: true }
+    });
+
+    if (!compartimento || compartimento.status === gaveta.status) {
+      continue;
+    }
+
+    compartimento.status = gaveta.status as StatusCompartimento;
+    await compartimentosRepo.save(compartimento);
+    console.log(
+      `MQTT: gaveta ${gaveta.numero} atualizada para ${gaveta.status} pelo heartbeat`
+    );
+  }
+}
+
+function obterStatusPorEvento(
+  tipoEvento: TipoEventoMedicamento
+): StatusCompartimento | null {
+  if (tipoEvento === 'compartimento_aberto') {
+    return 'aberto';
+  }
+
+  if (
+    tipoEvento === 'compartimento_fechado' ||
+    tipoEvento === 'medicamento_retirado'
+  ) {
+    return 'bloqueado';
+  }
+
+  if (tipoEvento === 'falha') {
+    return 'erro';
+  }
+
+  return null;
 }
