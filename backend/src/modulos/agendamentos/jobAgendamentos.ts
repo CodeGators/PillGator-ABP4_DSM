@@ -42,10 +42,20 @@ export function pararJobAgendamentos(): void {
 
 async function verificarAgendamentos(): Promise<void> {
   const agora = new Date();
-  const diaSemana = agora.getDay(); // 0=dom, 1=seg, ..., 6=sab
-  const horaAtual = String(agora.getHours()).padStart(2, '0');
-  const minutoAtual = String(agora.getMinutes()).padStart(2, '0');
-  const horarioAtual = `${horaAtual}:${minutoAtual}`;
+  
+  // Garantir que a verificacao use o fuso horario do Brasil
+  const diaBr = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short'
+  }).format(agora);
+  const mapaDias: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const diaSemana = mapaDias[diaBr] ?? agora.getDay();
+
+  const horarioAtual = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(agora); // Retorna no formato "HH:mm"
 
   const agendamentosRepo = AppDataSource.getRepository(AgendamentoMedicamento);
   const compartimentosRepo = AppDataSource.getRepository(Compartimento);
