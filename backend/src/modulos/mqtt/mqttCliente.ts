@@ -74,8 +74,12 @@ export function publicarComando(
   }
 
   const topico = `pillgator/${dispositivoId}/comando/${comando}`;
+  const payload = JSON.stringify(dados);
+  const tamanhoBytes = Buffer.byteLength(payload);
 
-  cliente.publish(topico, JSON.stringify(dados), { qos: 1 }, (erro) => {
+  console.log(`MQTT: publicando ${topico} (${tamanhoBytes} bytes)`);
+
+  cliente.publish(topico, payload, { qos: 1 }, (erro) => {
     if (erro) {
       console.error(`MQTT: erro ao publicar em ${topico}`, erro);
     } else {
