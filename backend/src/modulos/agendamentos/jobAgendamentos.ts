@@ -15,10 +15,29 @@ import { Compartimento } from '../../entidades/Compartimento.js';
 import { publicarComando } from '../mqtt/mqttCliente.js';
 
 const INTERVALO_MS = 60_000; // 1 minuto
+const FUSO_AGENDAMENTOS = 'America/Sao_Paulo';
+const diasSemanaIntl: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6
+};
 let intervaloId: ReturnType<typeof setInterval> | null = null;
 
+type AgoraOperacional = {
+  dataIso: string;
+  diaSemana: number;
+  horarioAtual: string;
+};
+
 export function iniciarJobAgendamentos(): void {
-  console.log('JOB: iniciando verificacao de agendamentos a cada 60s');
+  console.log(
+    `JOB: iniciando verificacao de agendamentos a cada 60s ` +
+    `(fuso operacional: ${FUSO_AGENDAMENTOS})`
+  );
 
   // Primeira execucao imediata
   verificarAgendamentos().catch((erro) => {
@@ -42,14 +61,21 @@ export function pararJobAgendamentos(): void {
 
 async function verificarAgendamentos(): Promise<void> {
   const agora = new Date();
-  const diaSemana = agora.getDay(); // 0=dom, 1=seg, ..., 6=sab
-  const horaAtual = String(agora.getHours()).padStart(2, '0');
-  const minutoAtual = String(agora.getMinutes()).padStart(2, '0');
-  const horarioAtual = `${horaAtual}:${minutoAtual}`;
+  const { dataIso, diaSemana, horarioAtual } = obterAgoraOperacional(agora);
 
   const agendamentosRepo = AppDataSource.getRepository(AgendamentoMedicamento);
   const compartimentosRepo = AppDataSource.getRepository(Compartimento);
   const comandosRepo = AppDataSource.getRepository(ComandoDispositivo);
+  const resumo = {
+    total: 0,
+    foraDia: 0,
+    foraPeriodo: 0,
+    foraHorario: 0,
+    semCompartimento: 0,
+    duplicado: 0,
+    semIdentificador: 0,
+    enviados: 0
+  };
 
   // Buscar agendamentos ativos
   const agendamentos = await agendamentosRepo.find({
@@ -58,20 +84,23 @@ async function verificarAgendamentos(): Promise<void> {
   });
 
   for (const agendamento of agendamentos) {
+    resumo.total += 1;
+
     // Verificar se hoje e um dia valido
     if (!agendamento.diasSemana.includes(diaSemana)) {
+      resumo.foraDia += 1;
       continue;
     }
 
     // Verificar se esta dentro do periodo do tratamento
-    if (agendamento.inicioEm) {
-      const inicio = new Date(agendamento.inicioEm);
-      if (agora < inicio) continue;
+    if (agendamento.inicioEm && dataIso < agendamento.inicioEm) {
+      resumo.foraPeriodo += 1;
+      continue;
     }
 
-    if (agendamento.fimEm) {
-      const fim = new Date(agendamento.fimEm);
-      if (agora > fim) continue;
+    if (agendamento.fimEm && dataIso > agendamento.fimEm) {
+      resumo.foraPeriodo += 1;
+      continue;
     }
 
     // Obter horarios a verificar
@@ -79,6 +108,7 @@ async function verificarAgendamentos(): Promise<void> {
 
     // Verificar se algum horario bate com agora
     if (!horariosParaVerificar.includes(horarioAtual)) {
+      resumo.foraHorario += 1;
       continue;
     }
 
@@ -92,6 +122,12 @@ async function verificarAgendamentos(): Promise<void> {
     });
 
     if (!compartimento) {
+      resumo.semCompartimento += 1;
+      console.warn(
+        `JOB: agendamento ${agendamento.id} no horario ${horarioAtual} ` +
+        `ignorado porque o medicamento ${agendamento.medicamentoId} ` +
+        'nao esta associado a nenhuma gaveta ativa'
+      );
       continue; // Medicamento nao esta em nenhuma gaveta
     }
 
@@ -112,6 +148,7 @@ async function verificarAgendamentos(): Promise<void> {
     });
 
     if (comandoExistente) {
+      resumo.duplicado += 1;
       continue; // Ja disparou neste minuto
     }
 
@@ -144,9 +181,17 @@ async function verificarAgendamentos(): Promise<void> {
         msgId: comando.id,
         compartimento: compartimento.numero,
         medicamentoId: agendamento.medicamentoId,
+        medicamentoNome: agendamento.medicamento?.nome ?? 'Medicamento',
         motivo: 'Horario do agendamento',
         agendamentoId: agendamento.id
       });
+      resumo.enviados += 1;
+    } else {
+      resumo.semIdentificador += 1;
+      console.warn(
+        `JOB: comando ${comando.id} criado, mas o dispositivo ` +
+        `${compartimento.dispositivoId} nao tem identificador MQTT`
+      );
     }
 
     console.log(
@@ -154,6 +199,13 @@ async function verificarAgendamentos(): Promise<void> {
       `dispositivo ${identificador ?? compartimento.dispositivoId} ` +
       `(medicamento: ${agendamento.medicamento?.nome ?? agendamento.medicamentoId}, ` +
       `horario: ${horarioAtual})`
+    );
+  }
+
+  if (resumo.total > 0) {
+    console.log(
+      `JOB: resumo ${dataIso} ${horarioAtual} ${FUSO_AGENDAMENTOS} ` +
+      JSON.stringify(resumo)
     );
   }
 }
@@ -186,4 +238,31 @@ function obterHorarios(agendamento: AgendamentoMedicamento): string[] {
   }
 
   return [];
+}
+
+function obterAgoraOperacional(data: Date): AgoraOperacional {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: FUSO_AGENDAMENTOS,
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(data);
+  const valores = Object.fromEntries(
+    partes.map((parte) => [parte.type, parte.value])
+  );
+  const diaSemana = diasSemanaIntl[valores.weekday ?? ''];
+
+  if (diaSemana === undefined) {
+    throw new Error('JOB: nao foi possivel calcular o dia da semana operacional');
+  }
+
+  return {
+    dataIso: `${valores.year}-${valores.month}-${valores.day}`,
+    diaSemana,
+    horarioAtual: `${valores.hour}:${valores.minute}`
+  };
 }
